@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soparia PDV - Cardápio</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="index.html">Pedido</a>
+    <a href="cardapio.html" class="ativo">Cardápio</a>
+    <a href="caixa.html">Caixa</a>
+  </nav>
+
+  <main>
+    <h1>Cardápio</h1>
+
+    <div id="aviso"></div>
+
+    <div class="form-box">
+      <h2>Nova sopa</h2>
+      <input type="text" id="nome" placeholder="Nome da sopa" />
+      <input type="number" id="preco" placeholder="Preço (ex: 18.90)" step="0.01" min="0" />
+      <button id="btn-adicionar" class="principal">Adicionar ao cardápio</button>
+    </div>
+
+    <ul id="lista-sopas" class="lista-sopas"></ul>
+  </main>
+
+  <script src="js/cardapio.js"></script>
+</body>
+</html>

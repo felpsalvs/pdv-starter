@@ -1,91 +1,78 @@
-# CRUD NextJS + NestJS
+# Soparia PDV
 
-A full-stack application demonstrating a modern web architecture with Next.js for the frontend and NestJS for the backend. The project implements a product management system with AI-powered product descriptions.
+Sistema de ponto de venda simples para a soparia. Roda no próprio computador
+do estabelecimento, funciona offline no dia a dia, e não precisa de nenhuma
+assinatura ou serviço pago.
 
-## Project Overview
+## O que você precisa antes de começar
 
-- **Frontend**: Next.js application with modern UI components and real-time updates
-- **Backend**: NestJS REST API with clean architecture principles
-- **Features**:
-  - Product CRUD operations
-  - AI-powered product description generation
-  - Caching with Redis
-  - Database persistence with Prisma
-  - Real-time updates
-  - Responsive design
+- O computador da soparia (Windows).
+- Internet **só para o passo de instalação** (depois disso não precisa mais).
+- [Node.js](https://nodejs.org) instalado — baixe a versão "LTS" no site e
+  instale como qualquer programa (clicando em "Avançar" até o fim).
 
-## Getting Started
+## Como instalar (fazer uma vez só)
 
-### Prerequisites
+1. Copie esta pasta do projeto para o computador da soparia.
+2. Abra a pasta, clique com o botão direito dentro dela e escolha
+   **"Abrir no Terminal"** (ou "Abrir janela do PowerShell aqui").
+3. Digite o comando abaixo e aperte Enter (só precisa fazer isso uma vez):
+   ```
+   npm install
+   ```
+   Isso vai baixar tudo que o sistema precisa. Pode demorar alguns minutos.
 
-- Node.js 16+
-- Redis server
-- PostgreSQL database
-- Yarn or npm
-- Docker
+## Como usar todo dia
 
-### Installation & Setup
+1. Abra a pasta do projeto, botão direito → "Abrir no Terminal".
+2. Digite:
+   ```
+   npm start
+   ```
+3. Você vai ver a mensagem `Soparia PDV rodando em http://localhost:3000`.
+4. Abra o navegador (Chrome, Edge, etc.) e acesse:
+   ```
+   http://localhost:3000
+   ```
+5. Deixe essa janela do terminal aberta enquanto estiver usando o sistema —
+   fechar ela desliga o programa.
 
-1. Clone the repository:
-```bash
-git clone https://github.com/felpsalvs/crud-nextjs-nestjs.git
-cd crud-nextjs-nestjs
-```
+Dica: se quiser, peça pra alguém criar um atalho na área de trabalho que
+já abre o terminal e roda `npm start` automaticamente.
 
-2. Backend Setup:
-```bash
-cd backend
-cp .env.example .env  # Configure your environment variables
-npm install
-docker compose up -d
-npx prisma migrate dev --name init
-npm run start:dev
-```
+## Configurando a impressora da cozinha
 
-3. Frontend Setup:
-```bash
-cd frontend
-cp .env.example .env  # Configure your environment variables
-npm install
-npm run dev
-```
+O sistema imprime os pedidos automaticamente numa impressora térmica ligada
+por USB. Para configurar:
 
-4. Access the application at `http://localhost:3000`
+1. No Windows, vá em **Configurações → Dispositivos → Impressoras e
+   scanners** (ou "Dispositivos e Impressoras" no Painel de Controle) e
+   anote o **nome exato** da impressora térmica (ex: `POS-58`).
+2. Na pasta do projeto, copie o arquivo `printer.config.example.json`
+   e renomeie a cópia para `printer.config.json`.
+3. Abra `printer.config.json` num editor de texto (Bloco de Notas serve) e
+   troque o texto pelo nome exato da sua impressora:
+   ```json
+   {
+     "nomeImpressora": "POS-58"
+   }
+   ```
+4. Salve o arquivo e reinicie o sistema (`Ctrl+C` no terminal, depois
+   `npm start` de novo).
 
-## Key Dependencies
+**Se a impressora estiver desligada ou não configurada, o sistema continua
+funcionando normalmente** — o pedido é salvo e a tela avisa que não foi
+possível imprimir, mas nada trava.
 
-### Frontend
-- **Next.js**: React framework for production-grade applications
-- **Tailwind CSS**: Utility-first CSS framework for rapid UI development
-- **SWR**: React Hooks for data fetching with caching and real-time updates
-- **Clerk**: Authentication and user management
-- **Shadcn/ui**: Pre-built accessible UI components
+## Telas do sistema
 
-### Backend
-- **NestJS**: Progressive Node.js framework for scalable server-side applications
-- **Prisma**: Next-generation ORM for Node.js and TypeScript
-- **Redis**: In-memory data store for caching
-- **Google Gemini AI**: AI service for generating product descriptions
-- **Class Validator**: Runtime type checking and validation
+- **Pedido**: tela principal para tirar os pedidos do dia a dia.
+- **Cardápio**: cadastrar, editar preço e remover sopas do menu.
+- **Caixa**: abrir o caixa no início do dia e fechar no final, conferindo o
+  valor esperado com o valor contado na gaveta.
 
-## Technical Decisions
+## Onde ficam os dados
 
-1. **Clean Architecture**
-   - Separation of concerns with domain-driven design
-   - Clear dependency injection for better testability
-   - Repository pattern for data access abstraction
-
-2. **Performance Optimizations**
-   - Redis caching for frequently accessed data
-   - SWR for client-side caching and real-time updates
-   - Server-side rendering where appropriate
-
-3. **Developer Experience**
-   - TypeScript for type safety
-   - ESLint and Prettier for code consistency
-   - Environment-based configuration
-
-4. **Scalability Considerations**
-   - Modular architecture for easy feature additions
-   - Containerization-ready setup
-   - Efficient database querying with Prisma
+Tudo é salvo num único arquivo em `data/pdv.db`. Para fazer backup, basta
+copiar esse arquivo para um pendrive ou pasta na nuvem de tempos em tempos.
+Não apague essa pasta `data`, ou você perde o histórico de pedidos e caixa.

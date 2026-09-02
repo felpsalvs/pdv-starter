@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soparia PDV - Pedido</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="index.html" class="ativo">Pedido</a>
+    <a href="cardapio.html">Cardápio</a>
+    <a href="caixa.html">Caixa</a>
+  </nav>
+
+  <main>
+    <h1>Novo pedido</h1>
+
+    <div id="aviso"></div>
+
+    <div id="sopas" class="grid-sopas"></div>
+
+    <div class="carrinho">
+      <h2>Carrinho</h2>
+      <div id="itens-carrinho"></div>
+      <div class="total-linha">
+        <span>Total</span>
+        <span id="total">R$ 0,00</span>
+      </div>
+
+      <textarea id="observacao" rows="2" placeholder="Observação (ex: sem cebola)"></textarea>
+
+      <button id="btn-confirmar" class="principal">Confirmar e enviar pra cozinha</button>
+    </div>
+  </main>
+
+  <script src="js/pedido.js"></script>
+</body>
+</html>
