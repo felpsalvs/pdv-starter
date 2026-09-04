@@ -2,7 +2,7 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
-function agoraLocal() {
+function nowLocal() {
   const d = new Date();
   return (
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
@@ -10,9 +10,9 @@ function agoraLocal() {
   );
 }
 
-function hojeLocal() {
+function todayLocal() {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-module.exports = { agoraLocal, hojeLocal };
+module.exports = { nowLocal, todayLocal };

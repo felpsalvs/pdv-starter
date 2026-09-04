@@ -8,8 +8,9 @@ assinatura ou serviço pago.
 
 - O computador da soparia (Windows).
 - Internet **só para o passo de instalação** (depois disso não precisa mais).
-- [Node.js](https://nodejs.org) instalado — baixe a versão "LTS" no site e
-  instale como qualquer programa (clicando em "Avançar" até o fim).
+- [Node.js](https://nodejs.org) instalado, versão 22 ou mais nova — baixe a
+  versão "LTS" no site e instale como qualquer programa (clicando em
+  "Avançar" até o fim).
 
 ## Como instalar (fazer uma vez só)
 
@@ -54,7 +55,7 @@ por USB. Para configurar:
    troque o texto pelo nome exato da sua impressora:
    ```json
    {
-     "nomeImpressora": "POS-58"
+     "printerName": "POS-58"
    }
    ```
 4. Salve o arquivo e reinicie o sistema (`Ctrl+C` no terminal, depois
@@ -66,13 +67,70 @@ possível imprimir, mas nada trava.
 
 ## Telas do sistema
 
-- **Pedido**: tela principal para tirar os pedidos do dia a dia.
-- **Cardápio**: cadastrar, editar preço e remover sopas do menu.
-- **Caixa**: abrir o caixa no início do dia e fechar no final, conferindo o
-  valor esperado com o valor contado na gaveta.
+- **Balcão**: tela principal para lançar os pedidos do dia a dia — pensada para
+  usar só o teclado, sem precisar de mouse. Veja "Atalhos do balcão" abaixo.
+- **Dia**: lista todos os pedidos do dia — contas de mesa em aberto, pagos e
+  cancelados. É onde você recebe o pagamento de uma mesa, reimprime um ticket
+  ou cancela um pedido errado.
+- **Caixa**: abrir o caixa no início do dia, registrar sangria (retirada) ou
+  suprimento (reforço) durante o turno, e fechar no final conferindo o valor
+  esperado **na gaveta** (só dinheiro) com o valor contado.
+- **Cardápio**: organizar produtos em categorias, marcar quais estão
+  "disponíveis hoje" (a sopa do dia), editar preço/nome e reativar itens
+  removidos por engano.
+
+## Atalhos do balcão
+
+A tela de Balcão foi feita pra ser usada só com o teclado — o cursor já
+começa dentro do campo de busca.
+
+- Digite o nome de uma sopa e aperte **Enter** para adicionar ao pedido.
+- Digite um número antes do nome (ex: `2 caldo verde`) para adicionar mais de
+  uma unidade de uma vez.
+- **↑ / ↓** navegam entre os produtos encontrados na busca.
+- **/** (com a busca vazia) abre o campo de observação do último item
+  adicionado (ex: "sem cebola").
+- **F2** define pra quem é o pedido — Balcão ou Mesa (número).
+- **F4** abre a tela de pagamento — Dinheiro, Pix, Débito ou Crédito. Em
+  dinheiro, o troco aparece calculado na hora.
+- **F8** envia o pedido pra cozinha **sem cobrar agora** — fica como conta em
+  aberto (útil pra mesa que só vai pagar no final).
+- **F9** limpa o pedido atual.
+- **Esc** limpa o campo de busca.
+
+## As três impressões
+
+Cada pedido pode gerar até três documentos na impressora térmica:
+
+1. **Ticket da cozinha** — sai assim que o pedido é enviado, com a senha, a
+   mesa/identificação e os itens.
+2. **Etiqueta da embalagem** — uma por sopa, com a senha e o nome do item, pra
+   colar na embalagem (substitui a etiqueta escrita à mão).
+3. **Recibo** — sai quando o pedido é pago, com o total e a forma de
+   pagamento.
+
+Se a impressora estiver desligada, o pedido continua sendo salvo — a tela do
+Balcão avisa que não foi possível imprimir, e dá pra reimprimir depois pela
+tela **Dia**.
 
 ## Onde ficam os dados
 
-Tudo é salvo num único arquivo em `data/pdv.db`. Para fazer backup, basta
-copiar esse arquivo para um pendrive ou pasta na nuvem de tempos em tempos.
-Não apague essa pasta `data`, ou você perde o histórico de pedidos e caixa.
+Tudo é salvo num único arquivo em `data/pdv.db` — pedidos, itens, caixa,
+cardápio. Nada é apagado automaticamente: o histórico fica ali guardado pra
+sempre, mesmo de anos atrás. Não apague essa pasta `data`, ou você perde tudo.
+
+### Backup automático
+
+Sempre que o sistema está ligado, ele salva sozinho uma cópia de segurança do
+banco na pasta `backups/` — uma ao abrir o sistema, uma a cada 4 horas, e uma
+última ao fechar (`Ctrl+C`). Ele guarda as 30 cópias mais recentes e vai
+apagando as mais antigas sozinho. Você não precisa fazer nada pra isso
+acontecer.
+
+**Isso não substitui um backup fora do computador.** Se o notebook for
+perdido, roubado ou o disco quebrar, as cópias em `backups/` se perdem
+junto — elas protegem contra um banco corrompido ou apagado sem querer, não
+contra perder o computador inteiro. De vez em quando, copie o arquivo mais
+recente da pasta `backups/` pra um pendrive ou pasta na nuvem — como já é uma
+cópia pronta e consistente, basta arrastar o arquivo, sem precisar fechar o
+sistema.

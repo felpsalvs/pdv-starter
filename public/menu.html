@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soparia PDV - Cardápio</title>
+  <link rel="stylesheet" href="css/polaris-tokens.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Pular para o conteúdo</a>
+
+  <nav aria-label="Navegação principal">
+    <a href="menu.html" class="active">Cardápio</a>
+    <a href="cash-register.html">Caixa</a>
+    <a href="index.html">Balcão</a>
+    <a href="day.html">Dia</a>
+    <button type="button" class="help-button" onclick="window.pdvTour.start('menu')" aria-label="Rever tutorial desta tela">?</button>
+  </nav>
+
+  <main id="main-content">
+    <h1>Cardápio</h1>
+
+    <div class="form-box" id="category-form">
+      <h2>Nova categoria</h2>
+      <label for="category-name-input" class="sr-only">Nome da categoria</label>
+      <input type="text" id="category-name-input" placeholder="Ex: Sopas, Bebidas, Porções" />
+      <button id="add-category-button" class="secondary">Adicionar categoria</button>
+    </div>
+
+    <div class="form-box" id="product-form">
+      <h2>Novo produto</h2>
+      <label for="product-name-input" class="sr-only">Nome do produto</label>
+      <input type="text" id="product-name-input" placeholder="Nome do produto" />
+      <label for="product-price-input" class="sr-only">Preço do produto</label>
+      <input type="number" id="product-price-input" placeholder="Preço (ex: 18.90)" step="0.01" min="0" />
+      <label for="category-select" class="sr-only">Categoria do produto</label>
+      <select id="category-select"></select>
+      <button id="add-product-button" class="primary">Adicionar ao cardápio</button>
+    </div>
+
+    <div class="menu-header">
+      <h2>Produtos</h2>
+      <button id="toggle-inactive-button" class="secondary">Ver removidos</button>
+    </div>
+
+    <ul id="product-list" class="product-list"></ul>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/menu.js"></script>
+  <script src="js/onboarding.js" data-page="menu"></script>
+</body>
+</html>

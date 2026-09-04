@@ -3,37 +3,106 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Soparia PDV - Pedido</title>
+  <title>Soparia PDV - Balcão</title>
+  <link rel="stylesheet" href="css/polaris-tokens.css" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <nav>
-    <a href="index.html" class="ativo">Pedido</a>
-    <a href="cardapio.html">Cardápio</a>
-    <a href="caixa.html">Caixa</a>
+  <a href="#main-content" class="skip-link">Pular para o conteúdo</a>
+
+  <nav aria-label="Navegação principal">
+    <a href="menu.html">Cardápio</a>
+    <a href="cash-register.html">Caixa</a>
+    <a href="index.html" class="active">Balcão</a>
+    <a href="day.html">Dia</a>
+    <button type="button" class="help-button" onclick="window.pdvTour.start('order')" aria-label="Rever tutorial desta tela">?</button>
   </nav>
 
-  <main>
-    <h1>Novo pedido</h1>
+  <div id="status-bar" class="status-bar" role="status"></div>
 
-    <div id="aviso"></div>
+  <main class="counter" id="main-content">
+    <section class="product-panel">
+      <label for="search-input" class="sr-only">Buscar produto</label>
+      <input
+        type="text"
+        id="search-input"
+        class="search-input"
+        placeholder="Digite o nome da sopa… (ex: 2 caldo verde)"
+        autocomplete="off"
+      />
+      <div id="category-tabs" class="category-tabs" role="tablist" aria-label="Categorias"></div>
+      <div id="product-list" class="product-grid"></div>
+    </section>
 
-    <div id="sopas" class="grid-sopas"></div>
-
-    <div class="carrinho">
-      <h2>Carrinho</h2>
-      <div id="itens-carrinho"></div>
-      <div class="total-linha">
-        <span>Total</span>
-        <span id="total">R$ 0,00</span>
+    <section class="cart-panel" id="cart-panel">
+      <div class="cart-header">
+        <h2>Pedido</h2>
+        <button id="reference-button" class="reference-chip" type="button">
+          Balcão <span class="key-hint">F2</span>
+        </button>
       </div>
 
-      <textarea id="observacao" rows="2" placeholder="Observação (ex: sem cebola)"></textarea>
+      <div id="cart-items" class="cart-items"></div>
 
-      <button id="btn-confirmar" class="principal">Confirmar e enviar pra cozinha</button>
-    </div>
+      <div class="total-row">
+        <span>Total</span>
+        <span id="cart-total">R$ 0,00</span>
+      </div>
+
+      <div class="cart-actions">
+        <button id="pay-button" class="primary" type="button">Pagar (F4)</button>
+        <button id="send-unpaid-button" class="secondary" type="button">Enviar sem pagar (F8)</button>
+        <button id="clear-button" class="secondary" type="button">Limpar (F9)</button>
+      </div>
+    </section>
+
+    <footer class="shortcuts-bar">
+      <span><b>↑↓</b> navegar</span>
+      <span><b>Enter</b> adicionar</span>
+      <span><b>3 nome</b> quantidade</span>
+      <span><b>/</b> observação do item</span>
+      <span><b>F2</b> identificação</span>
+      <span><b>F4</b> pagar</span>
+      <span><b>F8</b> enviar sem pagar</span>
+      <span><b>F9</b> limpar</span>
+      <span><b>Esc</b> limpar busca</span>
+    </footer>
   </main>
 
-  <script src="js/pedido.js"></script>
+  <div id="reference-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reference-modal-title">
+    <div class="modal-panel">
+      <h2 id="reference-modal-title">Identificação do pedido</h2>
+      <div class="modal-options">
+        <button data-source="counter" class="secondary" aria-pressed="true">Balcão <span class="key-hint">1</span></button>
+        <button data-source="table" class="secondary" aria-pressed="false">Mesa <span class="key-hint">2</span></button>
+      </div>
+      <div id="reference-modal-extra"></div>
+      <div class="modal-actions">
+        <button id="confirm-reference-button" class="primary">Confirmar (Enter)</button>
+        <button id="cancel-reference-button" class="secondary">Cancelar (Esc)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="payment-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+    <div class="modal-panel">
+      <h2 id="payment-modal-title">Pagamento — <span id="payment-modal-total"></span></h2>
+      <div class="modal-options">
+        <button data-method="cash" class="secondary" aria-pressed="false">Dinheiro <span class="key-hint">1</span></button>
+        <button data-method="pix" class="secondary" aria-pressed="false">Pix <span class="key-hint">2</span></button>
+        <button data-method="debit" class="secondary" aria-pressed="false">Débito <span class="key-hint">3</span></button>
+        <button data-method="credit" class="secondary" aria-pressed="false">Crédito <span class="key-hint">4</span></button>
+      </div>
+      <div id="payment-modal-extra"></div>
+      <div class="modal-actions">
+        <button id="confirm-payment-button" class="primary">Confirmar (Enter)</button>
+        <button id="cancel-payment-button" class="secondary">Cancelar (Esc)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/order.js"></script>
+  <script src="js/onboarding.js" data-page="order"></script>
 </body>
 </html>
