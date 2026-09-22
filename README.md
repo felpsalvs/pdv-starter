@@ -99,6 +99,37 @@ impressora pra rede nenhuma de fora do próprio computador.
 funcionando normalmente** — o pedido é salvo e a tela avisa que não foi
 possível imprimir, mas nada trava.
 
+## Acessando de outro aparelho na mesma rede
+
+O sistema já fica disponível pra outros aparelhos da mesma rede wifi da
+loja — não precisa instalar nada em nenhum serviço de nuvem pra isso, e não
+tem custo nenhum. Um celular ou tablet no mesmo wifi consegue abrir o
+sistema direto pelo navegador.
+
+1. No computador onde o `pdv.exe` roda, abra o Prompt de Comando e digite
+   `ipconfig`. Procure o "Endereço IPv4" da rede em uso (algo como
+   `192.168.0.15`).
+2. Em qualquer outro aparelho conectado na **mesma rede wifi**, abra o
+   navegador e acesse `http://<esse-IP>:3000` (trocando pelo IP encontrado
+   no passo 1). Salve como atalho na tela inicial do celular/tablet pra
+   virar um "link" fixo.
+3. Na primeira vez que isso acontecer, o Windows pode perguntar se libera o
+   `pdv.exe` no Firewall — escolha permitir para "redes privadas". Se não
+   aparecer esse aviso e o acesso não funcionar, libere manualmente em
+   **Firewall do Windows Defender → Configurações avançadas → Regra de
+   Entrada**, liberando a porta `3000/TCP`.
+4. Esse IP pode mudar quando o roteador reinicia. Pra deixar fixo, reserve
+   o IP desse computador nas configurações do roteador (procure por "IP
+   reservado" ou "DHCP reservation", associado ao endereço MAC da placa de
+   rede) — assim o link não muda depois de uma queda de energia, por
+   exemplo.
+
+Isso funciona só dentro da rede da loja — de propósito. Levar o acesso pra
+fora da rede exigiria hospedar o sistema em algum servidor sempre ligado,
+o que tiraria a impressão térmica do ar (ela só funciona porque o sistema
+roda na mesma máquina/rede da impressora) e não traz nenhum ganho real
+enquanto o uso for só dentro do estabelecimento.
+
 ## Telas do sistema
 
 - **Balcão**: tela principal para lançar os pedidos do dia a dia — pensada para
