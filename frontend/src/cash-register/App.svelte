@@ -1,11 +1,13 @@
 <script lang="ts">
   import { api, ApiError, type CashRegisterSummary, type CashRegisterClosure } from '$lib/api.js';
   import { toast } from '$lib/toast.svelte.js';
+  import { parseAmount } from '$lib/utils.js';
   import Toaster from '$lib/components/Toaster.svelte';
   import Nav from '$lib/components/Nav.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 
   function money(value: number) {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -15,15 +17,30 @@
     return err instanceof ApiError ? err.message : fallback;
   }
 
+  // "2026-09-22 08:00:00" -> "22/09 08:00"
+  function formatDateTime(raw: string) {
+    const [datePart, timePart] = raw.split(' ');
+    const [, month, day] = datePart.split('-');
+    const hm = timePart ? timePart.slice(0, 5) : '';
+    return `${day}/${month}${hm ? ` ${hm}` : ''}`;
+  }
+
   let loading = $state(true);
   let register = $state<CashRegisterSummary | null>(null);
   let closures = $state<CashRegisterClosure[]>([]);
+  let busy = $state(false);
 
   let openingAmount = $state('');
   let movementType = $state<'cash_out' | 'cash_in'>('cash_out');
   let movementAmount = $state('');
   let movementReason = $state('');
   let countedAmount = $state('');
+  let pendingClose = $state<number | null>(null);
+
+  const pendingCloseDiff = $derived.by(() => {
+    if (pendingClose === null || !register) return 0;
+    return Math.round((pendingClose - register.expectedInDrawer) * 100) / 100;
+  });
 
   async function loadRegister() {
     loading = true;
@@ -45,22 +62,42 @@
   }
 
   async function openRegister() {
+    if (busy) return;
+    const amount = parseAmount(openingAmount);
+    if (amount === null || amount < 0) {
+      toast('Informe um valor inicial válido.', 'error');
+      return;
+    }
+    busy = true;
     try {
-      await api.openRegister(Number(openingAmount));
+      await api.openRegister(amount);
       openingAmount = '';
       toast('Caixa aberto.', 'success', 3000);
       await loadRegister();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao abrir caixa.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
   async function submitMovement() {
+    if (busy) return;
+    const amount = parseAmount(movementAmount);
+    if (amount === null || amount <= 0) {
+      toast('Informe um valor válido.', 'error');
+      return;
+    }
+    if (!movementReason.trim()) {
+      toast('Informe o motivo do movimento.', 'error');
+      return;
+    }
+    busy = true;
     try {
       await api.registerMovement({
         type: movementType,
-        amount: Number(movementAmount),
-        reason: movementReason,
+        amount,
+        reason: movementReason.trim(),
       });
       movementAmount = '';
       movementReason = '';
@@ -68,12 +105,27 @@
       await loadRegister();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao registrar movimento.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
-  async function closeRegister() {
+  function startCloseRegister() {
+    const amount = parseAmount(countedAmount);
+    if (amount === null || amount < 0) {
+      toast('Informe o valor contado na gaveta.', 'error');
+      return;
+    }
+    pendingClose = amount;
+  }
+
+  async function confirmCloseRegister() {
+    if (busy || pendingClose === null) return;
+    const amount = pendingClose;
+    pendingClose = null;
+    busy = true;
     try {
-      const result = await api.closeRegister(Number(countedAmount));
+      const result = await api.closeRegister(amount);
       const sign = result.difference >= 0 ? 'sobra' : 'falta';
       toast(
         `Caixa fechado. Esperado: ${money(result.summary.expectedInDrawer)} | Contado: ${money(result.countedAmount)} | Diferença: ${money(Math.abs(result.difference))} (${sign})`,
@@ -85,6 +137,8 @@
       await loadHistory();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao fechar caixa.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -121,11 +175,11 @@
         bind:value={openingAmount}
         class="mb-3"
       />
-      <Button onclick={openRegister}>Abrir caixa</Button>
+      <Button onclick={openRegister} disabled={busy}>Abrir caixa</Button>
     </div>
   {:else}
     <div class="mb-6 flex flex-col gap-1 rounded-lg border bg-card p-4 shadow-sm">
-      <div class="flex justify-between py-1 text-sm"><span>Aberto em</span><span class="tabular-nums">{register.openedAt}</span></div>
+      <div class="flex justify-between py-1 text-sm"><span>Aberto em</span><span class="tabular-nums">{formatDateTime(register.openedAt)}</span></div>
       <div class="flex justify-between py-1 text-sm"><span>Valor de abertura</span><span class="tabular-nums">{money(register.openingAmount)}</span></div>
       <div class="flex justify-between py-1 text-sm"><span>Dinheiro</span><span class="tabular-nums">{money(register.sales.cash)}</span></div>
       <div class="flex justify-between py-1 text-sm"><span>Pix</span><span class="tabular-nums">{money(register.sales.pix)}</span></div>
@@ -137,7 +191,7 @@
         <span>Esperado na gaveta</span><span class="tabular-nums">{money(register.expectedInDrawer)}</span>
       </div>
       {#if register.openTabs.count > 0}
-        <div class="flex justify-between py-1 text-sm font-semibold text-warning-foreground">
+        <div class="flex justify-between py-1 text-sm font-semibold text-warning">
           <span>Contas de mesa abertas ({register.openTabs.count})</span>
           <span class="tabular-nums">{money(register.openTabs.total)}</span>
         </div>
@@ -159,7 +213,7 @@
       <Input id="movement-amount-input" type="number" step="0.01" min="0" placeholder="Valor" bind:value={movementAmount} class="mb-3" />
       <Label for="movement-reason-input" class="sr-only">Motivo do movimento</Label>
       <Input id="movement-reason-input" placeholder="Motivo" bind:value={movementReason} class="mb-3" />
-      <Button variant="secondary" onclick={submitMovement}>Registrar</Button>
+      <Button variant="secondary" onclick={submitMovement} disabled={busy}>Registrar</Button>
     </div>
 
     <div class="max-w-md rounded-lg border bg-card p-4 shadow-sm">
@@ -174,7 +228,7 @@
         bind:value={countedAmount}
         class="mb-3"
       />
-      <Button onclick={closeRegister}>Fechar caixa</Button>
+      <Button onclick={startCloseRegister} disabled={busy}>Fechar caixa</Button>
     </div>
   {/if}
 
@@ -185,7 +239,7 @@
     <div class="flex flex-col gap-2">
       {#each closures as closure (closure.id)}
         <div class="flex justify-between rounded-lg border bg-card p-4 text-sm shadow-sm">
-          <span>{closure.openedAt} → {closure.closedAt}</span>
+          <span>{formatDateTime(closure.openedAt)} → {closure.closedAt ? formatDateTime(closure.closedAt) : '—'}</span>
           <span class="tabular-nums">
             {Math.abs(closure.difference) < 0.01
               ? 'bateu'
@@ -199,3 +253,21 @@
   {/if}
 </main>
 </div>
+
+<AlertDialog.Root open={pendingClose !== null} onOpenChange={(open) => !open && (pendingClose = null)}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Fechar caixa?</AlertDialog.Title>
+      <AlertDialog.Description>
+        {#if pendingClose !== null && register}
+          Esperado na gaveta: {money(register.expectedInDrawer)} · Contado: {money(pendingClose)} · Diferença: {money(Math.abs(pendingCloseDiff))}
+          {pendingCloseDiff >= 0 ? '(sobra)' : '(falta)'}
+        {/if}
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Voltar</AlertDialog.Cancel>
+      <AlertDialog.Action disabled={busy} onclick={confirmCloseRegister}>Fechar caixa</AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>

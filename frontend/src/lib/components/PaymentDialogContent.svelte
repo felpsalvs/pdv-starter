@@ -25,6 +25,12 @@
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  // Compara em centavos — em ponto flutuante, somas como 0.1 + 0.2 não batem
+  // exatamente com 0.3, então "recebido === total" podia dar falso negativo.
+  function cents(value: number) {
+    return Math.round(value * 100);
+  }
+
   let stage = $state<'select' | 'summary'>('select');
   let method = $state<PaymentMethod | null>(null);
   let amountReceivedInput = $state('');
@@ -33,7 +39,7 @@
 
   let changeDueDisplay = $derived.by(() => {
     const received = Number(amountReceivedInput);
-    if (!Number.isFinite(received) || received < total) return '';
+    if (!Number.isFinite(received) || cents(received) < cents(total)) return '';
     return `Troco: ${money(received - total)}`;
   });
 
@@ -44,7 +50,7 @@
     }
     if (method === 'cash') {
       const received = Number(amountReceivedInput);
-      if (!Number.isFinite(received) || received < total) {
+      if (!Number.isFinite(received) || cents(received) < cents(total)) {
         toast('Informe um valor recebido válido (maior ou igual ao total).', 'error', 3000);
         return;
       }
@@ -80,7 +86,15 @@
       return;
     }
     const activeTag = (document.activeElement as HTMLElement | null)?.tagName;
-    if (activeTag === 'INPUT') return;
+    if (activeTag === 'INPUT') {
+      // Só o Enter é tratado aqui (único lugar) — evita que o Enter
+      // avance para "summary" e, no mesmo evento, já confirme o pagamento.
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        tryConfirm();
+      }
+      return;
+    }
     if (ev.key in METHOD_KEYS) {
       ev.preventDefault();
       method = METHOD_KEYS[ev.key];
@@ -119,7 +133,6 @@
         min="0"
         placeholder="Valor recebido"
         bind:value={amountReceivedInput}
-        onkeydown={(e) => e.key === 'Enter' && tryConfirm()}
       />
       <div class="flex gap-2">
         <Button variant="outline" size="sm" onclick={() => (amountReceivedInput = String(total))}>Exato</Button>

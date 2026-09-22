@@ -10,6 +10,7 @@
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import ReasonDialogContent from '$lib/components/ReasonDialogContent.svelte';
   import PaymentDialogContent from '$lib/components/PaymentDialogContent.svelte';
+  import { cn } from '$lib/utils.js';
 
   type FilterId = 'open' | 'paid' | 'canceled' | 'all';
   const FILTERS: { id: FilterId; label: string; status: OrderStatus | null }[] = [
@@ -69,11 +70,22 @@
   let cancelingOrder = $state<Order | null>(null);
   let pendingCancel = $state<{ order: Order; reason: string } | null>(null);
   let payingOrder = $state<Order | null>(null);
+  let busy = $state(false);
+  let reprinting = $state(false);
 
   function shiftDate(days: number) {
     const [y, m, d] = selectedDate.split('-').map(Number);
     const dt = new Date(y, m - 1, d + days);
     selectedDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    load();
+  }
+
+  function onDateInputChange() {
+    // Campo de data vazio ou no futuro (ex: apagado no teclado) — volta pra
+    // hoje em vez de deixar `selectedDate` inválido e quebrar shiftDate/load.
+    if (!selectedDate || selectedDate > todayLocal()) {
+      selectedDate = todayLocal();
+    }
     load();
   }
 
@@ -99,12 +111,17 @@
   }
 
   async function handleReprint(order: Order, document: 'kitchen' | 'label' | 'receipt') {
+    // Sem essa trava, um duplo clique manda dois jobs pra impressora física.
+    if (reprinting) return;
+    reprinting = true;
     try {
       const result = await api.reprint(order.id, document);
       if (result.success) toast('Reimpressão enviada.', 'success', 3000);
       else toast(`Não foi possível reimprimir: ${result.reason}`, 'error', 5000);
     } catch (err) {
       toast(errorMessage(err, 'Erro ao reimprimir.'), 'error');
+    } finally {
+      reprinting = false;
     }
   }
 
@@ -132,12 +149,16 @@
   }
 
   async function doCancel(id: number, reason: string) {
+    if (busy) return;
+    busy = true;
     try {
       await api.cancelOrder(id, reason);
       toast('Pedido cancelado.', 'success', 3000);
       await load();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao cancelar pedido.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -148,7 +169,8 @@
   async function paymentConfirmed(result: { paymentMethod: 'cash' | 'pix' | 'debit' | 'credit'; amountReceived?: number }) {
     const order = payingOrder;
     payingOrder = null;
-    if (!order) return;
+    if (!order || busy) return;
+    busy = true;
     try {
       const response = await api.payOrder(order.id, result);
       if (response.receipt && !response.receipt.success) {
@@ -159,6 +181,8 @@
       await load();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao registrar pagamento.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -178,7 +202,7 @@
     <input
       type="date"
       bind:value={selectedDate}
-      onchange={() => load()}
+      onchange={onDateInputChange}
       max={todayLocal()}
       class="h-9 rounded-md border border-input bg-background px-3 text-sm"
     />
@@ -227,7 +251,12 @@
         type="button"
         role="tab"
         aria-selected={currentFilter === filter.id}
-        class={`rounded-[3px] border px-3.5 py-1.5 font-mono text-xs tracking-wide uppercase ${currentFilter === filter.id ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground'}`}
+        class={cn(
+          'rounded-[3px] border px-3.5 py-1.5 font-mono text-xs tracking-wide uppercase transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:border-ring active:translate-y-px',
+          currentFilter === filter.id
+            ? 'border-foreground bg-foreground text-background'
+            : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+        )}
         onclick={() => {
           currentFilter = filter.id;
           load();
@@ -270,10 +299,10 @@
               <Button variant="secondary" size="sm" onclick={() => startPay(order)}>Receber pagamento</Button>
             {/if}
             {#if order.status !== 'canceled'}
-              <Button variant="secondary" size="sm" onclick={() => handleReprint(order, 'kitchen')}>Reimprimir cozinha</Button>
-              <Button variant="secondary" size="sm" onclick={() => handleReprint(order, 'label')}>Reimprimir etiqueta</Button>
+              <Button variant="secondary" size="sm" disabled={reprinting} onclick={() => handleReprint(order, 'kitchen')}>Reimprimir cozinha</Button>
+              <Button variant="secondary" size="sm" disabled={reprinting} onclick={() => handleReprint(order, 'label')}>Reimprimir etiqueta</Button>
               {#if order.status === 'paid'}
-                <Button variant="secondary" size="sm" onclick={() => handleReprint(order, 'receipt')}>Reimprimir recibo</Button>
+                <Button variant="secondary" size="sm" disabled={reprinting} onclick={() => handleReprint(order, 'receipt')}>Reimprimir recibo</Button>
               {/if}
               {#if isToday}
                 <Button variant="outline" size="sm" class="text-destructive" onclick={() => startCancel(order)}>Cancelar</Button>
@@ -306,7 +335,7 @@
     </AlertDialog.Header>
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Voltar</AlertDialog.Cancel>
-      <AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={confirmPendingCancel}>
+      <AlertDialog.Action variant="destructive" onclick={confirmPendingCancel}>
         Cancelar mesmo assim
       </AlertDialog.Action>
     </AlertDialog.Footer>

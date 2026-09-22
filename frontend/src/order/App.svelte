@@ -18,6 +18,7 @@
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import PaymentDialogContent from '$lib/components/PaymentDialogContent.svelte';
+  import { cn } from '$lib/utils.js';
   import Flame from '@lucide/svelte/icons/flame';
 
   type CartItem = { productId: number; name: string; unitPrice: number; quantity: number; note: string };
@@ -67,6 +68,7 @@
 
   let topProductNames = $state<Set<string>>(new Set());
   let lastOrder = $state<{ id: number; dailyNumber: number; paid: boolean } | null>(null);
+  let reprinting = $state(false);
 
   const tabs = $derived.by(() => [
     { id: 'all' as const, name: 'Todas' },
@@ -148,6 +150,11 @@
       lastItemIndex = cart.indexOf(existing);
     } else {
       cart.push({ productId: product.id, name: product.name, unitPrice: product.price, quantity, note: '' });
+      // noteInputs precisa ter uma entrada (null, não undefined) pra cada
+      // item ANTES do each-block renderizar — bind:ref num Input recém-criado
+      // lendo `undefined` quebra a renderização inteira (Svelte exige um
+      // valor compatível com o fallback do prop bindable).
+      noteInputs.push(null);
       lastItemIndex = cart.length - 1;
     }
   }
@@ -158,6 +165,7 @@
     item.quantity += delta;
     if (item.quantity <= 0) {
       cart.splice(index, 1);
+      noteInputs.splice(index, 1);
       lastItemIndex = cart.length - 1;
     }
   }
@@ -168,7 +176,12 @@
   }
 
   function clearOrder() {
+    // AlertDialog.Action (ao contrário do Cancel) não fecha o diálogo
+    // sozinho — quem chama decide se/quando fechar. Isso também é usado
+    // pelo atalho de carrinho já vazio, onde o diálogo nem chegou a abrir.
+    pendingClear = false;
     cart = [];
+    noteInputs = [];
     lastItemIndex = -1;
     reference = { source: 'counter', value: null };
     searchValue = '';
@@ -265,13 +278,19 @@
   // --- Reimpressão rápida do último pedido enviado ---
 
   async function reprintLast(document: 'kitchen' | 'label' | 'receipt') {
-    if (!lastOrder) return;
+    // Sem essa trava, um duplo clique (ou o F6 repetindo ao segurar a tecla)
+    // manda dois jobs pra impressora física — dois tickets de cozinha, duas
+    // etiquetas.
+    if (!lastOrder || reprinting) return;
+    reprinting = true;
     try {
       const result = await api.reprint(lastOrder.id, document);
       if (result.success) toast('Reimpressão enviada.', 'success', 3000);
       else toast(`Não foi possível reimprimir: ${result.reason}`, 'error', 5000);
     } catch (err) {
       toast(errorMessage(err, 'Erro ao reimprimir.'), 'error');
+    } finally {
+      reprinting = false;
     }
   }
 
@@ -387,12 +406,12 @@
   {#if lastOrder}
     <span class="ml-auto flex items-center gap-2 normal-case">
       <span>Último: #{lastOrder.dailyNumber}</span>
-      <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" onclick={() => reprintLast('kitchen')}>
+      <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" disabled={reprinting} onclick={() => reprintLast('kitchen')}>
         Cozinha <kbd class="opacity-70">F6</kbd>
       </Button>
-      <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" onclick={() => reprintLast('label')}>Etiqueta</Button>
+      <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" disabled={reprinting} onclick={() => reprintLast('label')}>Etiqueta</Button>
       {#if lastOrder.paid}
-        <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" onclick={() => reprintLast('receipt')}>Recibo</Button>
+        <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" disabled={reprinting} onclick={() => reprintLast('receipt')}>Recibo</Button>
       {/if}
     </span>
   {/if}
@@ -417,7 +436,12 @@
           type="button"
           role="tab"
           aria-selected={tab.id === currentCategory}
-          class={`rounded-[3px] border px-3.5 py-1.5 font-mono text-xs tracking-wide uppercase ${tab.id === currentCategory ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground'}`}
+          class={cn(
+            'rounded-[3px] border px-3.5 py-1.5 font-mono text-xs tracking-wide uppercase transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:border-ring active:translate-y-px',
+            tab.id === currentCategory
+              ? 'border-foreground bg-foreground text-background'
+              : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+          )}
           onclick={() => selectCategory(tab.id)}
         >
           {tab.name}
@@ -426,9 +450,9 @@
     </div>
 
     {#if loading}
-      <div class="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">
+      <div class="grid grid-cols-2 gap-px sm:grid-cols-3">
         {#each Array(6) as _}
-          <div class="h-16 animate-pulse bg-muted"></div>
+          <div class="h-16 animate-pulse border border-border bg-muted"></div>
         {/each}
       </div>
     {:else if products.length === 0}
@@ -438,12 +462,15 @@
     {:else if filteredProducts.length === 0}
       <p class="text-muted-foreground">Nada encontrado para essa busca.</p>
     {:else}
-      <div class="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">
+      <div class="grid grid-cols-2 gap-px sm:grid-cols-3">
         {#each filteredProducts as product, index (product.id)}
           <button
             type="button"
             bind:this={productRefs[index]}
-            class={`relative flex flex-col items-start gap-1.5 bg-card p-3.5 text-left transition-colors hover:bg-accent ${index === selectedIndex ? 'bg-primary/8 shadow-[inset_3px_0_0_var(--color-primary)]' : ''}`}
+            class={cn(
+              'relative flex flex-col items-start gap-1.5 border border-border bg-card p-3.5 text-left transition-colors outline-none hover:bg-accent focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px',
+              index === selectedIndex && 'bg-accent shadow-[inset_3px_0_0_var(--color-primary)]'
+            )}
             onclick={() => {
               addToCart(product, 1);
               focusSearch();
@@ -460,7 +487,7 @@
     {/if}
   </section>
 
-  <section class="ticket-notch relative flex h-fit flex-col gap-3 border border-border bg-card p-4 md:border-l-dashed">
+  <section class="ticket-notch relative flex h-fit flex-col gap-3 border border-border bg-card p-4 md:[border-left-style:dashed]">
     <div class="flex items-center justify-between pt-1">
       <h2 class="font-mono text-sm font-bold tracking-wide uppercase">Pedido</h2>
       <Button variant="outline" size="sm" class="border-primary text-primary hover:bg-primary/5" onclick={openReferenceModal}>
@@ -565,7 +592,7 @@
 </footer>
 </div>
 
-<Dialog.Root open={referenceModalOpen} onOpenChange={(open) => (referenceModalOpen = open)}>
+<Dialog.Root open={referenceModalOpen} onOpenChange={(open) => { referenceModalOpen = open; if (!open) focusSearch(); }}>
   <Dialog.Content
     onOpenAutoFocus={(ev) => {
       ev.preventDefault();
@@ -622,7 +649,7 @@
     {/if}
     <Dialog.Footer>
       <Button onclick={confirmReference}>Confirmar <kbd class="ml-1.5 opacity-70">Enter</kbd></Button>
-      <Button variant="secondary" onclick={() => (referenceModalOpen = false)}>Cancelar <kbd class="ml-1.5 opacity-70">Esc</kbd></Button>
+      <Button variant="secondary" onclick={() => { referenceModalOpen = false; focusSearch(); }}>Cancelar <kbd class="ml-1.5 opacity-70">Esc</kbd></Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -648,7 +675,7 @@
     </AlertDialog.Header>
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
-      <AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={clearOrder}>
+      <AlertDialog.Action variant="destructive" onclick={clearOrder}>
         Limpar
       </AlertDialog.Action>
     </AlertDialog.Footer>

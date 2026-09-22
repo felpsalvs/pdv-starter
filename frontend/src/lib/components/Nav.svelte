@@ -20,7 +20,7 @@
 
 <aside aria-label="Navegação principal" class="fixed inset-y-0 left-0 z-40 flex w-52 flex-col bg-foreground px-4 py-5 text-background">
   <div class="mb-8 font-mono text-base font-bold tracking-tight">
-    <span class="text-primary">»</span> Soparia
+    <span class="text-warning">»</span> Soparia
   </div>
   <nav class="flex flex-col gap-0.5">
     {#each links as link (link.page)}

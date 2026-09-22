@@ -15,16 +15,17 @@
   let products = $state<Product[]>([]);
   let loading = $state(true);
   let showingInactive = $state(false);
+  let busy = $state(false);
 
   let categoryName = $state('');
   let productName = $state('');
   let productPrice = $state('');
-  let productCategoryId = $state('');
+  let productCategoryId = $state<number | ''>('');
 
   let editingProduct = $state<Product | null>(null);
   let editName = $state('');
   let editPrice = $state('');
-  let editCategoryId = $state('');
+  let editCategoryId = $state<number | ''>('');
 
   let removingProduct = $state<Product | null>(null);
 
@@ -58,11 +59,13 @@
   }
 
   async function addCategory() {
+    if (busy) return;
     const name = categoryName.trim();
     if (!name) {
       toast('Informe o nome da categoria.', 'error');
       return;
     }
+    busy = true;
     try {
       await api.createCategory(name);
       categoryName = '';
@@ -70,6 +73,8 @@
       await loadCategories();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao adicionar categoria.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -79,12 +84,13 @@
   }
 
   async function submitEditCategory() {
-    if (!editingCategory) return;
+    if (!editingCategory || busy) return;
     const name = editCategoryName.trim();
     if (!name) {
       toast('Informe o nome da categoria.', 'error');
       return;
     }
+    busy = true;
     try {
       await api.updateCategory(editingCategory.id, { name });
       toast('Categoria atualizada.', 'success');
@@ -92,6 +98,8 @@
       await loadCategories();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao atualizar categoria.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -100,12 +108,16 @@
     const index = sorted.findIndex((c) => c.id === category.id);
     const swapIndex = index + direction;
     if (index === -1 || swapIndex < 0 || swapIndex >= sorted.length) return;
-    const other = sorted[swapIndex];
+    // Reindexa tudo pela posição (0..n-1) em vez de trocar os valores de
+    // sortOrder — categorias antigas podem ter o mesmo sortOrder (padrão da
+    // migração), e nesse caso trocar os valores não muda nada.
+    const reordered = [...sorted];
+    [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
+    const updates = reordered
+      .map((c, newIndex) => ({ id: c.id, sortOrder: newIndex, changed: c.sortOrder !== newIndex }))
+      .filter((u) => u.changed);
     try {
-      await Promise.all([
-        api.updateCategory(category.id, { sortOrder: other.sortOrder }),
-        api.updateCategory(other.id, { sortOrder: category.sortOrder }),
-      ]);
+      await Promise.all(updates.map((u) => api.updateCategory(u.id, { sortOrder: u.sortOrder })));
       await loadCategories();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao reordenar categoria.'), 'error');
@@ -113,26 +125,32 @@
   }
 
   async function confirmRemoveCategory() {
-    if (!removingCategory) return;
+    if (!removingCategory || busy) return;
+    busy = true;
     try {
       await api.removeCategory(removingCategory.id);
       toast('Categoria removida.', 'success');
       removingCategory = null;
       await loadCategories();
+      await loadProducts();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao remover categoria.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
   async function addProduct() {
+    if (busy) return;
     const name = productName.trim();
     const price = Number(productPrice);
     if (!name || !Number.isFinite(price) || price <= 0) {
       toast('Preencha nome e preço válidos.', 'error');
       return;
     }
+    busy = true;
     try {
-      await api.createProduct({ name, price, categoryId: productCategoryId ? Number(productCategoryId) : null });
+      await api.createProduct({ name, price, categoryId: productCategoryId === '' ? null : productCategoryId });
       productName = '';
       productPrice = '';
       productCategoryId = '';
@@ -140,6 +158,8 @@
       await loadProducts();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao adicionar produto.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -158,27 +178,37 @@
     editingProduct = product;
     editName = product.name;
     editPrice = String(product.price);
-    editCategoryId = product.categoryId ? String(product.categoryId) : '';
+    editCategoryId = product.categoryId ?? '';
   }
 
   async function submitEdit() {
-    if (!editingProduct) return;
+    if (!editingProduct || busy) return;
+    const name = editName.trim();
+    const price = Number(editPrice);
+    if (!name || !Number.isFinite(price) || price <= 0) {
+      toast('Preencha nome e preço válidos.', 'error');
+      return;
+    }
+    busy = true;
     try {
       await api.updateProduct(editingProduct.id, {
-        name: editName,
-        price: Number(editPrice),
-        categoryId: editCategoryId ? Number(editCategoryId) : null,
+        name,
+        price,
+        categoryId: editCategoryId === '' ? null : editCategoryId,
       });
       toast('Produto atualizado.', 'success');
       editingProduct = null;
       await loadProducts();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao atualizar produto.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
   async function confirmRemove() {
-    if (!removingProduct) return;
+    if (!removingProduct || busy) return;
+    busy = true;
     try {
       await api.removeProduct(removingProduct.id);
       toast('Produto removido.', 'success');
@@ -186,6 +216,8 @@
       await loadProducts();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao remover produto.'), 'error');
+    } finally {
+      busy = false;
     }
   }
 
@@ -217,7 +249,7 @@
     <h2 class="mb-3 text-lg font-semibold">Nova categoria</h2>
     <Label for="category-name-input" class="sr-only">Nome da categoria</Label>
     <Input id="category-name-input" placeholder="Ex: Sopas, Bebidas, Porções" bind:value={categoryName} class="mb-3" />
-    <Button variant="secondary" onclick={addCategory}>Adicionar categoria</Button>
+    <Button variant="secondary" onclick={addCategory} disabled={busy}>Adicionar categoria</Button>
 
     {#if sortedCategories.length > 0}
       <ul class="mt-4 flex flex-col gap-2">
@@ -279,7 +311,7 @@
         <option value={category.id}>{category.name}</option>
       {/each}
     </select>
-    <Button onclick={addProduct}>Adicionar ao cardápio</Button>
+    <Button onclick={addProduct} disabled={busy}>Adicionar ao cardápio</Button>
   </div>
 
   <div class="mb-3 flex items-center justify-between">
@@ -365,7 +397,7 @@
     </div>
     <Dialog.Footer>
       <Button variant="secondary" onclick={() => (editingProduct = null)}>Cancelar</Button>
-      <Button onclick={submitEdit}>Salvar</Button>
+      <Button onclick={submitEdit} disabled={busy}>Salvar</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -381,7 +413,7 @@
     </div>
     <Dialog.Footer>
       <Button variant="secondary" onclick={() => (editingCategory = null)}>Cancelar</Button>
-      <Button onclick={submitEditCategory}>Salvar</Button>
+      <Button onclick={submitEditCategory} disabled={busy}>Salvar</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -396,7 +428,7 @@
     </AlertDialog.Header>
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
-      <AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={confirmRemoveCategory}>
+      <AlertDialog.Action variant="destructive" disabled={busy} onclick={confirmRemoveCategory}>
         Remover
       </AlertDialog.Action>
     </AlertDialog.Footer>
@@ -413,7 +445,7 @@
     </AlertDialog.Header>
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
-      <AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={confirmRemove}>
+      <AlertDialog.Action variant="destructive" disabled={busy} onclick={confirmRemove}>
         Remover
       </AlertDialog.Action>
     </AlertDialog.Footer>
