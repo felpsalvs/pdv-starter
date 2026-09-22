@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db');
 
-const BACKUP_DIR = path.join(__dirname, '..', 'backups');
+const BACKUP_DIR = process.env.PDV_BACKUP_DIR || path.join(__dirname, '..', 'backups');
 const INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 horas
 const RETENTION_COUNT = 30;
 
@@ -49,7 +49,7 @@ async function createBackup() {
     const destination = path.join(BACKUP_DIR, backupFileName());
     await db.backup(destination);
     pruneOldBackups();
-    console.log(`Backup do banco salvo em backups/${path.basename(destination)}`);
+    console.log(`Backup do banco salvo em ${destination}`);
   } catch (err) {
     console.error('Não foi possível fazer o backup automático do banco:', err.message);
   }

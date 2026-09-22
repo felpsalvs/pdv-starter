@@ -1,7 +1,11 @@
+const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const dbPath = path.join(__dirname, '..', 'data', 'pdv.db');
+// PDV_DB_PATH permite apontar pra um banco separado (ex: durante testes),
+// sem nunca tocar no arquivo real de produção em data/pdv.db.
+const dbPath = process.env.PDV_DB_PATH || path.join(__dirname, '..', 'data', 'pdv.db');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');

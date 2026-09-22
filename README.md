@@ -43,23 +43,35 @@ já abre o terminal e roda `npm start` automaticamente.
 
 ## Configurando a impressora da cozinha
 
-O sistema imprime os pedidos automaticamente numa impressora térmica ligada
-por USB. Para configurar:
+O sistema manda os bytes da impressão direto pro Windows imprimir — não
+precisa instalar nenhum programa extra nem compilador pra isso funcionar.
+Só precisa de um passo único de configuração:
 
-1. No Windows, vá em **Configurações → Dispositivos → Impressoras e
-   scanners** (ou "Dispositivos e Impressoras" no Painel de Controle) e
-   anote o **nome exato** da impressora térmica (ex: `POS-58`).
-2. Na pasta do projeto, copie o arquivo `printer.config.example.json`
+1. Ligue a impressora térmica por USB e deixe o Windows instalar o driver
+   dela normalmente (geralmente reconhece sozinho; se não, instale o driver
+   que veio com a impressora, ou use o driver genérico "Generic / Text
+   Only" do próprio Windows).
+2. Abra **Configurações → Dispositivos → Impressoras e scanners**, clique
+   na impressora térmica → **Propriedades da impressora → Compartilhamento**,
+   e marque **"Compartilhar esta impressora"**. Anote o **nome do
+   compartilhamento** que você definir ali (pode ser o mesmo nome da
+   impressora, sem espaços).
+3. Na pasta do projeto, copie o arquivo `printer.config.example.json`
    e renomeie a cópia para `printer.config.json`.
-3. Abra `printer.config.json` num editor de texto (Bloco de Notas serve) e
-   troque o texto pelo nome exato da sua impressora:
+4. Abra `printer.config.json` num editor de texto (Bloco de Notas serve) e
+   troque o texto pelo **nome do compartilhamento** do passo 2:
    ```json
    {
      "printerName": "POS-58"
    }
    ```
-4. Salve o arquivo e reinicie o sistema (`Ctrl+C` no terminal, depois
+5. Salve o arquivo e reinicie o sistema (`Ctrl+C` no terminal, depois
    `npm start` de novo).
+
+O passo 2 (compartilhar) é necessário porque é assim que o sistema entrega
+os bytes da impressão pro Windows, sem precisar de nenhuma biblioteca
+nativa instalada — só esse compartilhamento local, que não expõe a
+impressora pra rede nenhuma de fora do próprio computador.
 
 **Se a impressora estiver desligada ou não configurada, o sistema continua
 funcionando normalmente** — o pedido é salvo e a tela avisa que não foi

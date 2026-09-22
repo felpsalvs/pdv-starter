@@ -1,8 +1,13 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { ThermalPrinter, PrinterTypes } = require('node-thermal-printer');
+const crypto = require('crypto');
+const { execFile } = require('child_process');
+const { ThermalPrinter, PrinterTypes, CharacterSet } = require('node-thermal-printer');
 
 const CONFIG_PATH = path.join(__dirname, '..', 'printer.config.json');
+const NOT_CONFIGURED_ERROR =
+  'Impressora não configurada. Copie printer.config.example.json para printer.config.json e informe o nome da impressora.';
 
 const PAYMENT_METHOD_LABELS = {
   cash: 'Dinheiro',
@@ -22,27 +27,33 @@ function readConfig() {
   }
 }
 
-async function openPrinter() {
-  const config = readConfig();
-  if (!config) {
-    return {
-      error:
-        'Impressora não configurada. Copie printer.config.example.json para printer.config.json e informe o nome da impressora.',
-    };
-  }
+// Envia os bytes ESC/POS pro sistema operacional imprimir, sem depender de
+// nenhum pacote nativo (nada de compilar C++ no computador do cliente):
+// no macOS/Linux via CUPS (`lp -o raw`), no Windows via uma impressora
+// compartilhada localmente (`copy /b`).
+function printRawBytes(printerName, buffer) {
+  return new Promise((resolve, reject) => {
+    const tempFile = path.join(os.tmpdir(), `pdv-print-${crypto.randomBytes(6).toString('hex')}.bin`);
+    fs.writeFile(tempFile, buffer, (writeErr) => {
+      if (writeErr) return reject(writeErr);
 
-  const printer = new ThermalPrinter({
-    type: PrinterTypes.EPSON,
-    interface: `printer:${config.printerName}`,
-    width: 32,
+      const cleanup = () => fs.unlink(tempFile, () => {});
+      const isWindows = process.platform === 'win32';
+      const command = isWindows ? 'cmd' : 'lp';
+      const args = isWindows
+        ? ['/c', 'copy', '/b', tempFile, `\\\\localhost\\${printerName}`]
+        : ['-d', printerName, '-o', 'raw', tempFile];
+
+      execFile(command, args, (err, stdout, stderr) => {
+        cleanup();
+        if (err) {
+          reject(new Error((stderr && stderr.toString().trim()) || err.message));
+        } else {
+          resolve();
+        }
+      });
+    });
   });
-
-  const connected = await printer.isPrinterConnected().catch(() => false);
-  if (!connected) {
-    return { error: 'Impressora não respondeu (desligada ou não encontrada).' };
-  }
-
-  return { printer };
 }
 
 function referenceLine(order) {
@@ -143,14 +154,10 @@ const BUILDERS = {
   receipt: (printer, order) => buildReceipt(printer, order),
 };
 
-// Prints a list of documents reusing a single printer connection (a paid
-// order prints up to 3 documents — kitchen ticket, label, receipt —
-// reconnecting for each would triple checkout latency and the chance of a
-// false-negative connectivity check).
 async function printBatch(jobs) {
-  const { printer, error } = await openPrinter();
-  if (error) {
-    return jobs.map(() => ({ success: false, reason: error }));
+  const config = readConfig();
+  if (!config) {
+    return jobs.map(() => ({ success: false, reason: NOT_CONFIGURED_ERROR }));
   }
 
   const results = [];
@@ -161,9 +168,13 @@ async function printBatch(jobs) {
       continue;
     }
     try {
-      printer.clear();
+      const printer = new ThermalPrinter({
+        type: PrinterTypes.EPSON,
+        width: 32,
+        characterSet: CharacterSet.PC860_PORTUGUESE,
+      });
       build(printer, order);
-      await printer.execute();
+      await printRawBytes(config.printerName, printer.getBuffer());
       results.push({ success: true });
     } catch (err) {
       results.push({ success: false, reason: `Falha ao imprimir: ${err.message}` });
