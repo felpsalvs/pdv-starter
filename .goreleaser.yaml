@@ -1,0 +1,54 @@
+version: 2
+
+# goreleaser's own output directory — kept separate from dist/, which is
+# the frontend build output that gets embedded into the binary itself.
+dist: dist-release
+
+before:
+  hooks:
+    # The frontend build (dist/) is embedded into the binary at compile
+    # time (see webassets.go) — it has to exist before `go build` runs.
+    - npm ci
+    - npm run build
+
+builds:
+  - id: pdv
+    main: ./cmd/pdv
+    binary: pdv
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: pdv
+    formats: [tar.gz]
+    # Matches internal/update.ArchiveName() exactly — the self-updater
+    # looks up this exact name in the release assets.
+    name_template: "pdv_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: felpsalvs
+    name: pdv-starter
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^ci:"

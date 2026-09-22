@@ -98,17 +98,17 @@
     <Dialog.Title>Pagamento — {money(total)}</Dialog.Title>
   </Dialog.Header>
   <div class="grid grid-cols-2 gap-2">
-    <Button variant={method === 'cash' ? 'default' : 'secondary'} onclick={() => (method = 'cash')}>
-      Dinheiro <kbd class="ml-1.5 rounded border px-1 text-xs opacity-70">{METHOD_HINTS.cash}</kbd>
+    <Button variant={method === 'cash' ? 'default' : 'secondary'} onclick={() => (method = 'cash')} class="justify-between px-4">
+      Dinheiro <kbd class="opacity-70">{METHOD_HINTS.cash}</kbd>
     </Button>
-    <Button variant={method === 'pix' ? 'default' : 'secondary'} onclick={() => (method = 'pix')}>
-      Pix <kbd class="ml-1.5 rounded border px-1 text-xs opacity-70">{METHOD_HINTS.pix}</kbd>
+    <Button variant={method === 'pix' ? 'default' : 'secondary'} onclick={() => (method = 'pix')} class="justify-between px-4">
+      Pix <kbd class="opacity-70">{METHOD_HINTS.pix}</kbd>
     </Button>
-    <Button variant={method === 'debit' ? 'default' : 'secondary'} onclick={() => (method = 'debit')}>
-      Débito <kbd class="ml-1.5 rounded border px-1 text-xs opacity-70">{METHOD_HINTS.debit}</kbd>
+    <Button variant={method === 'debit' ? 'default' : 'secondary'} onclick={() => (method = 'debit')} class="justify-between px-4">
+      Débito <kbd class="opacity-70">{METHOD_HINTS.debit}</kbd>
     </Button>
-    <Button variant={method === 'credit' ? 'default' : 'secondary'} onclick={() => (method = 'credit')}>
-      Crédito <kbd class="ml-1.5 rounded border px-1 text-xs opacity-70">{METHOD_HINTS.credit}</kbd>
+    <Button variant={method === 'credit' ? 'default' : 'secondary'} onclick={() => (method = 'credit')} class="justify-between px-4">
+      Crédito <kbd class="opacity-70">{METHOD_HINTS.credit}</kbd>
     </Button>
   </div>
   {#if method === 'cash'}
@@ -133,25 +133,25 @@
     </div>
   {/if}
   <Dialog.Footer>
-    <Button onclick={tryConfirm}>Confirmar <kbd class="ml-1.5 opacity-70">(Enter)</kbd></Button>
-    <Button variant="secondary" onclick={onCancel}>Cancelar <kbd class="ml-1.5 opacity-70">(Esc)</kbd></Button>
+    <Button onclick={tryConfirm} class="justify-between px-4">Confirmar <kbd class="opacity-70">Enter</kbd></Button>
+    <Button variant="secondary" onclick={onCancel} class="justify-between px-4">Cancelar <kbd class="opacity-70">Esc</kbd></Button>
   </Dialog.Footer>
 {:else}
   <Dialog.Header>
     <Dialog.Title>Pagamento confirmado</Dialog.Title>
   </Dialog.Header>
-  <div class="flex flex-col gap-1 rounded-lg border bg-muted/40 p-3 text-sm">
+  <div class="flex flex-col gap-1.5 border border-dashed border-border bg-muted/30 p-3 font-mono text-[13px]">
     {#each items as item, i (i)}
-      <div class="flex justify-between"><span>{item.quantity}x {item.name}</span></div>
+      <div class="flex justify-between"><span class="uppercase">{item.quantity}x {item.name}</span></div>
     {/each}
-    <div class="mt-1 flex justify-between border-t pt-2 font-bold"><span>Total</span><span>{money(total)}</span></div>
-    <div class="flex justify-between"><span>Forma de pagamento</span><span>{method ? PAYMENT_METHOD_LABELS[method] : ''}</span></div>
+    <div class="mt-1 flex justify-between border-t-2 border-foreground pt-2 font-bold"><span>Total</span><span class="tabular-nums">{money(total)}</span></div>
+    <div class="flex justify-between text-muted-foreground"><span>Forma de pagamento</span><span>{method ? PAYMENT_METHOD_LABELS[method] : ''}</span></div>
     {#if method === 'cash'}
-      <div class="flex justify-between"><span>Recebido</span><span>{money(amountReceived)}</span></div>
-      <div class="flex justify-between font-bold"><span>Troco</span><span>{money(changeDue)}</span></div>
+      <div class="flex justify-between text-muted-foreground"><span>Recebido</span><span class="tabular-nums">{money(amountReceived)}</span></div>
+      <div class="flex justify-between font-bold text-success"><span>Troco</span><span class="tabular-nums">{money(changeDue)}</span></div>
     {/if}
   </div>
   <Dialog.Footer>
-    <Button onclick={finish}>OK <kbd class="ml-1.5 opacity-70">(Enter)</kbd></Button>
+    <Button onclick={finish} class="justify-between px-4">OK <kbd class="opacity-70">Enter</kbd></Button>
   </Dialog.Footer>
 {/if}

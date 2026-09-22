@@ -180,7 +180,13 @@ export const api = {
     note: string | null;
     payment: { paymentMethod: PaymentMethod; amountReceived?: number } | null;
   }) => fetchJSON<CreateOrderResult>('/api/orders', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) }),
-  listOrdersToday: (status?: OrderStatus) => fetchJSON<Order[]>(`/api/orders/today${status ? `?status=${status}` : ''}`),
+  listOrdersToday: (status?: OrderStatus, date?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (date) params.set('date', date);
+    const qs = params.toString();
+    return fetchJSON<Order[]>(`/api/orders/today${qs ? `?${qs}` : ''}`);
+  },
   cancelOrder: (id: number, reason: string) =>
     fetchJSON<Order>(`/api/orders/${id}/cancel`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ reason }) }),
   payOrder: (id: number, payment: { paymentMethod: PaymentMethod; amountReceived?: number }) =>
@@ -195,5 +201,5 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ document }),
     }),
-  getDayReport: () => fetchJSON<DayReport>('/api/report/day'),
+  getDayReport: (date?: string) => fetchJSON<DayReport>(`/api/report/day${date ? `?date=${date}` : ''}`),
 };

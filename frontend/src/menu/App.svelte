@@ -151,7 +151,8 @@
 <Toaster />
 <Nav active="menu" />
 
-<main id="main-content" class="mx-auto max-w-3xl p-4">
+<div class="pl-52">
+  <main id="main-content" class="mx-auto max-w-3xl p-6">
   <h1 class="mb-4 text-2xl font-bold">Cardápio</h1>
 
   <div class="mb-6 max-w-md rounded-lg border bg-card p-4 shadow-sm">
@@ -246,6 +247,7 @@
     </ul>
   {/if}
 </main>
+</div>
 
 <Dialog.Root open={editingProduct !== null} onOpenChange={(open) => !open && (editingProduct = null)}>
   <Dialog.Content>

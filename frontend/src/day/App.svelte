@@ -44,20 +44,44 @@
     return order.reference || 'Balcão';
   }
 
+  function pad(n: number) {
+    return String(n).padStart(2, '0');
+  }
+
+  function todayLocal() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function formatDateLabel(date: string) {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+  }
+
   let currentFilter = $state<FilterId>('open');
+  let selectedDate = $state(todayLocal());
   let orders = $state<Order[]>([]);
   let report = $state<DayReport | null>(null);
   let loading = $state(true);
+
+  const isToday = $derived(selectedDate === todayLocal());
 
   let cancelingOrder = $state<Order | null>(null);
   let pendingCancel = $state<{ order: Order; reason: string } | null>(null);
   let payingOrder = $state<Order | null>(null);
 
+  function shiftDate(days: number) {
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + days);
+    selectedDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    load();
+  }
+
   async function load() {
     loading = true;
     try {
       const filter = FILTERS.find((f) => f.id === currentFilter);
-      orders = await api.listOrdersToday(filter?.status ?? undefined);
+      orders = await api.listOrdersToday(filter?.status ?? undefined, selectedDate);
     } catch {
       toast('Erro ao carregar pedidos do dia.', 'error');
     } finally {
@@ -68,7 +92,7 @@
 
   async function loadReport() {
     try {
-      report = await api.getDayReport();
+      report = await api.getDayReport(selectedDate);
     } catch {
       report = null;
     }
@@ -144,8 +168,31 @@
 <Toaster />
 <Nav active="day" />
 
-<main id="main-content" class="mx-auto max-w-3xl p-4">
-  <h1 class="mb-4 text-2xl font-bold">Pedidos do dia</h1>
+<div class="pl-52">
+  <main id="main-content" class="mx-auto max-w-3xl p-6">
+  <h1 class="mb-1 text-2xl font-bold">Pedidos do dia</h1>
+  <p class="mb-4 text-sm text-muted-foreground capitalize">{formatDateLabel(selectedDate)}</p>
+
+  <div class="mb-4 flex items-center gap-2">
+    <Button variant="outline" size="icon" onclick={() => shiftDate(-1)} aria-label="Dia anterior">‹</Button>
+    <input
+      type="date"
+      bind:value={selectedDate}
+      onchange={() => load()}
+      max={todayLocal()}
+      class="h-9 rounded-md border border-input bg-background px-3 text-sm"
+    />
+    <Button variant="outline" size="icon" disabled={isToday} onclick={() => shiftDate(1)} aria-label="Próximo dia">›</Button>
+    {#if !isToday}
+      <Button variant="ghost" size="sm" onclick={() => { selectedDate = todayLocal(); load(); }}>Hoje</Button>
+    {/if}
+  </div>
+
+  {#if !isToday}
+    <p class="mb-4 rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+      Vendo um dia anterior — receber pagamento e cancelar ficam disponíveis só no dia de hoje, pra não misturar com o caixa atual. Reimpressão funciona normalmente.
+    </p>
+  {/if}
 
   {#if report}
     <div class="mb-4 flex flex-col gap-1 rounded-lg border bg-card p-4 shadow-sm">
@@ -154,7 +201,7 @@
       <div class={`flex justify-between py-1 text-sm ${report.summary.openTabs > 0 ? 'font-bold' : ''}`}>
         <span>Contas abertas</span><span>{report.summary.openTabs}</span>
       </div>
-      <div class="flex justify-between border-t pt-2 text-sm font-bold"><span>Total vendido hoje</span><span class="tabular-nums">{money(report.summary.totalSold)}</span></div>
+      <div class="flex justify-between border-t pt-2 text-sm font-bold"><span>Total vendido</span><span class="tabular-nums">{money(report.summary.totalSold)}</span></div>
       {#if report.byPaymentMethod.length > 0}
         <div class="mt-2 text-sm font-bold">Por forma de pagamento</div>
         {#each report.byPaymentMethod as row (row.paymentMethod)}
@@ -180,7 +227,7 @@
         type="button"
         role="tab"
         aria-selected={currentFilter === filter.id}
-        class={`rounded-full border px-4 py-1.5 text-sm ${currentFilter === filter.id ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+        class={`rounded-[3px] border px-3.5 py-1.5 font-mono text-xs tracking-wide uppercase ${currentFilter === filter.id ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground'}`}
         onclick={() => {
           currentFilter = filter.id;
           load();
@@ -198,19 +245,19 @@
       {/each}
     </div>
   {:else if orders.length === 0}
-    <p class="text-muted-foreground">Nenhum pedido nessa categoria hoje.</p>
+    <p class="text-muted-foreground">Nenhum pedido nessa categoria nesse dia.</p>
   {:else}
     <ul class="flex flex-col gap-2" role="list" aria-label="Pedidos do dia">
       {#each orders as order (order.id)}
         <li class={`rounded-lg border border-l-4 bg-card p-4 shadow-sm ${STATUS_BORDER[order.status]}`}>
           <div class="flex flex-wrap items-center gap-3 text-sm">
-            <span class="text-lg font-bold">#{order.dailyNumber}</span>
+            <span class="font-mono text-lg font-bold tabular-nums">#{order.dailyNumber}</span>
             <span>{sourceLabel(order)}</span>
             <Badge variant={STATUS_BADGE_VARIANT[order.status]}>{STATUS_LABELS[order.status]}</Badge>
             {#if order.status === 'paid' && order.paymentMethod}
               <span class="text-sm text-muted-foreground">{PAYMENT_METHOD_LABELS[order.paymentMethod]}</span>
             {/if}
-            <span class="ml-auto font-bold tabular-nums">{money(order.total)}</span>
+            <span class="ml-auto font-mono font-bold tabular-nums">{money(order.total)}</span>
           </div>
           <div class="mt-1 text-sm text-muted-foreground">
             {order.items.map((item) => `${item.quantity}x ${item.name}${item.note ? ` (${item.note})` : ''}`).join(', ')}
@@ -219,7 +266,7 @@
             <div class="mt-1 text-sm text-destructive">Motivo: {order.cancellationReason}</div>
           {/if}
           <div class="mt-3 flex flex-wrap gap-2">
-            {#if order.status === 'open'}
+            {#if order.status === 'open' && isToday}
               <Button variant="secondary" size="sm" onclick={() => startPay(order)}>Receber pagamento</Button>
             {/if}
             {#if order.status !== 'canceled'}
@@ -228,7 +275,9 @@
               {#if order.status === 'paid'}
                 <Button variant="secondary" size="sm" onclick={() => handleReprint(order, 'receipt')}>Reimprimir recibo</Button>
               {/if}
-              <Button variant="outline" size="sm" class="text-destructive" onclick={() => startCancel(order)}>Cancelar</Button>
+              {#if isToday}
+                <Button variant="outline" size="sm" class="text-destructive" onclick={() => startCancel(order)}>Cancelar</Button>
+              {/if}
             {/if}
           </div>
         </li>
@@ -236,6 +285,7 @@
     </ul>
   {/if}
 </main>
+</div>
 
 <Dialog.Root open={cancelingOrder !== null} onOpenChange={(open) => !open && (cancelingOrder = null)}>
   <Dialog.Content>

@@ -6,3 +6,10 @@ data/*.db-wal
 data/*.db-shm
 backups/
 printer.config.json
+
+# Go build/release output and the compiled PDV binary, wherever it's built.
+dist-release/
+/pdv
+/pdv.exe
+*.exe.old
+*.old

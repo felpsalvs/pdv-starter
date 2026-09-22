@@ -7,39 +7,61 @@ assinatura ou serviço pago.
 ## O que você precisa antes de começar
 
 - O computador da soparia (Windows).
-- Internet **só para o passo de instalação** (depois disso não precisa mais).
-- [Node.js](https://nodejs.org) instalado, versão 22 ou mais nova — baixe a
-  versão "LTS" no site e instale como qualquer programa (clicando em
-  "Avançar" até o fim).
+- Internet **de vez em quando** — só pra checar se tem uma versão nova (o
+  sistema faz isso sozinho ao abrir; se não tiver internet, ele
+  simplesmente continua com a versão que já está instalada).
+- Nada mais. Não precisa instalar Node, nem nenhum outro programa.
 
 ## Como instalar (fazer uma vez só)
 
-1. Copie esta pasta do projeto para o computador da soparia.
-2. Abra a pasta, clique com o botão direito dentro dela e escolha
-   **"Abrir no Terminal"** (ou "Abrir janela do PowerShell aqui").
-3. Digite o comando abaixo e aperte Enter (só precisa fazer isso uma vez):
-   ```
-   npm install
-   ```
-   Isso vai baixar tudo que o sistema precisa. Pode demorar alguns minutos.
+1. Baixe o arquivo `pdv.exe` da
+   [última versão publicada](https://github.com/felpsalvs/pdv-starter/releases/latest)
+   (em "Assets", o arquivo `pdv_windows_amd64.zip` — extraia o zip, o
+   `pdv.exe` está dentro).
+2. Coloque o `pdv.exe` numa pasta só dele no computador da soparia (ex:
+   `C:\SopariaPDV`). É nessa pasta que o sistema vai guardar os pedidos, o
+   cardápio e os backups — depois de instalar, não mova esse arquivo pra
+   outro lugar sem mover a pasta inteira junto.
+3. Dê dois cliques no `pdv.exe` pra testar. O navegador deve abrir sozinho
+   na tela do sistema.
+
+Dica: crie um atalho do `pdv.exe` na área de trabalho, pra não precisar
+abrir a pasta toda vez.
 
 ## Como usar todo dia
 
-1. Abra a pasta do projeto, botão direito → "Abrir no Terminal".
-2. Digite:
-   ```
-   npm start
-   ```
-3. Você vai ver a mensagem `Soparia PDV rodando em http://localhost:3000`.
-4. Abra o navegador (Chrome, Edge, etc.) e acesse:
-   ```
-   http://localhost:3000
-   ```
-5. Deixe essa janela do terminal aberta enquanto estiver usando o sistema —
-   fechar ela desliga o programa.
+1. Dê dois cliques no `pdv.exe` (ou no atalho da área de trabalho).
+2. Uma janela preta abre rapidamente — ela verifica se tem uma versão nova
+   (e atualiza sozinha, se tiver) e liga o sistema.
+3. O navegador abre sozinho na tela do sistema. Se não abrir, acesse
+   `http://localhost:3000` manualmente.
+4. Deixe essa janela preta aberta enquanto estiver usando o sistema —
+   fechar ela desliga o programa (ele salva um backup automaticamente
+   antes de fechar, então pode fechar sem medo no fim do dia).
 
-Dica: se quiser, peça pra alguém criar um atalho na área de trabalho que
-já abre o terminal e roda `npm start` automaticamente.
+### Atualizações
+
+Você não precisa fazer nada: toda vez que o `pdv.exe` é aberto, ele
+confere sozinho se existe uma versão mais nova publicada e, se existir,
+baixa e aplica antes de abrir o sistema (fazendo um backup do banco antes,
+por segurança). Se não tiver internet no momento, ele simplesmente abre
+com a versão que já está instalada — nada trava.
+
+## Migrando da versão antiga (Node)
+
+Se você já usava a versão antiga (que precisava de `npm install`/`npm
+start`), seus dados não se perdem:
+
+1. Feche o sistema antigo (`Ctrl+C` no terminal, se ainda estiver aberto).
+2. Instale o `pdv.exe` numa pasta nova, como descrito acima.
+3. Copie o arquivo `data/pdv.db` da pasta do projeto antigo para dentro de
+   `data/pdv.db` na pasta nova do `pdv.exe` (crie a pasta `data` se ela
+   ainda não existir).
+4. Se você tinha configurado a impressora, copie também o
+   `printer.config.json` da pasta antiga para a pasta nova.
+5. Abra o `pdv.exe` normalmente — na primeira vez ele reconhece o banco
+   antigo e segue de onde parou, sem perder nenhum pedido ou fechamento de
+   caixa.
 
 ## Configurando a impressora da cozinha
 
@@ -65,8 +87,8 @@ Só precisa de um passo único de configuração:
      "printerName": "POS-58"
    }
    ```
-5. Salve o arquivo e reinicie o sistema (`Ctrl+C` no terminal, depois
-   `npm start` de novo).
+5. Salve o arquivo e reinicie o sistema (feche a janela preta e abra o
+   `pdv.exe` de novo).
 
 O passo 2 (compartilhar) é necessário porque é assim que o sistema entrega
 os bytes da impressão pro Windows, sem precisar de nenhuma biblioteca
@@ -146,3 +168,28 @@ contra perder o computador inteiro. De vez em quando, copie o arquivo mais
 recente da pasta `backups/` pra um pendrive ou pasta na nuvem — como já é uma
 cópia pronta e consistente, basta arrastar o arquivo, sem precisar fechar o
 sistema.
+
+## Para quem for mexer no código (desenvolvimento)
+
+O backend é Go (`cmd/pdv`, com o resto em `internal/`) e o frontend é
+Svelte (`frontend/`), buildado com Vite e embutido dentro do binário Go —
+por isso o frontend precisa estar buildado (`dist/`) antes de compilar ou
+rodar o backend.
+
+```
+npm install              # instala as deps do frontend e já builda o dist/
+                          # (rode de novo depois de qualquer mudança no frontend)
+PDV_HOME=. go run ./cmd/pdv -no-update -no-browser
+```
+
+`PDV_HOME=.` faz o backend usar `./data`, `./backups` e
+`./printer.config.json` relativos à pasta do projeto, em vez de relativos
+a um `.exe` instalado — assim o `go run` não mexe em nada fora do repo.
+`-no-update` evita que ele tente se auto-atualizar num build de
+desenvolvimento (que não tem uma versão real).
+
+Rodando `npm run dev:frontend` num terminal separado dá hot-reload do
+frontend (proxying `/api` pro backend Go na porta 3000).
+
+Testes: `go test ./...`. Build local do `.exe` pra testar num Windows:
+`GOOS=windows GOARCH=amd64 go build -o pdv.exe ./cmd/pdv`.

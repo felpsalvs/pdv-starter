@@ -98,7 +98,8 @@
 <Toaster />
 <Nav active="cash-register" />
 
-<main id="main-content" class="mx-auto max-w-3xl p-4">
+<div class="pl-52">
+  <main id="main-content" class="mx-auto max-w-3xl p-6">
   <h1 class="mb-4 text-2xl font-bold">Caixa</h1>
 
   {#if loading}
@@ -197,3 +198,4 @@
     </div>
   {/if}
 </main>
+</div>

@@ -2,10 +2,8 @@
   "name": "soparia-pdv",
   "version": "1.0.0",
   "private": true,
-  "description": "PDV simples e offline para a Soparia",
-  "main": "src/server.js",
+  "description": "PDV simples e offline para a Soparia — frontend Svelte; o backend é o binário Go em cmd/pdv.",
   "scripts": {
-    "start": "node src/server.js",
     "dev:frontend": "vite --config frontend/vite.config.ts",
     "build": "vite build --config frontend/vite.config.ts",
     "postinstall": "npm run build",
@@ -13,11 +11,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "dependencies": {
-    "better-sqlite3": "^13.0.3",
-    "express": "^4.21.2",
-    "node-thermal-printer": "^4.4.4"
   },
   "devDependencies": {
     "@internationalized/date": "^3.12.4",

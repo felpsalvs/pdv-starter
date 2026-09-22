@@ -18,6 +18,7 @@
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import PaymentDialogContent from '$lib/components/PaymentDialogContent.svelte';
+  import Flame from '@lucide/svelte/icons/flame';
 
   type CartItem = { productId: number; name: string; unitPrice: number; quantity: number; note: string };
 
@@ -63,6 +64,9 @@
 
   let payingOpen = $state(false);
   let pendingClear = $state(false);
+
+  let topProductNames = $state<Set<string>>(new Set());
+  let lastOrder = $state<{ id: number; dailyNumber: number; paid: boolean } | null>(null);
 
   const tabs = $derived.by(() => [
     { id: 'all' as const, name: 'Todas' },
@@ -118,6 +122,13 @@
       toast('Não foi possível carregar os dados do servidor.', 'error');
     } finally {
       loading = false;
+    }
+    // Não crítico — se o relatório do dia falhar, só não destaca os mais pedidos.
+    try {
+      const report = await api.getDayReport();
+      topProductNames = new Set(report.topProducts.slice(0, 5).map((p) => p.name));
+    } catch {
+      topProductNames = new Set();
     }
   }
 
@@ -241,12 +252,26 @@
         toast(`Pedido #${order.dailyNumber} enviado para a cozinha!`, 'success', 4000);
       }
 
+      lastOrder = { id: order.id, dailyNumber: order.dailyNumber, paid: payment !== null };
       clearOrder();
       await loadData();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao enviar pedido.'), 'error', 5000);
     } finally {
       submitting = false;
+    }
+  }
+
+  // --- Reimpressão rápida do último pedido enviado ---
+
+  async function reprintLast(document: 'kitchen' | 'label' | 'receipt') {
+    if (!lastOrder) return;
+    try {
+      const result = await api.reprint(lastOrder.id, document);
+      if (result.success) toast('Reimpressão enviada.', 'success', 3000);
+      else toast(`Não foi possível reimprimir: ${result.reason}`, 'error', 5000);
+    } catch (err) {
+      toast(errorMessage(err, 'Erro ao reimprimir.'), 'error');
     }
   }
 
@@ -288,6 +313,18 @@
     if (ev.key === 'F9') {
       ev.preventDefault();
       handleClear();
+      return;
+    }
+    if (ev.key === 'F6') {
+      ev.preventDefault();
+      reprintLast('kitchen');
+      return;
+    }
+
+    if (ev.altKey && /^Digit[1-9]$/.test(ev.code)) {
+      ev.preventDefault();
+      const idx = Number(ev.code.slice(5)) - 1;
+      if (tabs[idx]) selectCategory(tabs[idx].id);
       return;
     }
 
@@ -333,38 +370,54 @@
 <Toaster />
 <Nav active="order" />
 
-<div class="flex flex-wrap items-center gap-3 border-b bg-muted/30 px-4 py-2 text-sm" role="status">
+<div class="pl-52">
+<div
+  class="flex flex-wrap items-center gap-4 border-b border-dashed bg-card px-6 py-2 font-mono text-xs uppercase text-muted-foreground"
+  role="status"
+>
   {#if !registerInfo}
-    <span class="font-semibold text-destructive">Caixa fechado — abra o caixa na tela "Caixa" antes de vender.</span>
+    <span class="font-semibold normal-case text-destructive">Caixa fechado — abra o caixa na tela "Caixa" antes de vender.</span>
   {:else}
     <span>Caixa aberto às {registerInfo.openedAt.slice(11, 16)}</span>
     {#if registerInfo.openTabs.count > 0}
-      <Badge variant="warning">Contas abertas: {registerInfo.openTabs.count} ({money(registerInfo.openTabs.total)})</Badge>
+      <Badge variant="warning">Mesas abertas: {registerInfo.openTabs.count} · {money(registerInfo.openTabs.total)}</Badge>
     {/if}
     <span>Vendas hoje: {money(registerInfo.totalSales)}</span>
   {/if}
+  {#if lastOrder}
+    <span class="ml-auto flex items-center gap-2 normal-case">
+      <span>Último: #{lastOrder.dailyNumber}</span>
+      <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" onclick={() => reprintLast('kitchen')}>
+        Cozinha <kbd class="opacity-70">F6</kbd>
+      </Button>
+      <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" onclick={() => reprintLast('label')}>Etiqueta</Button>
+      {#if lastOrder.paid}
+        <Button variant="ghost" size="sm" class="h-6 px-2 text-[11px]" onclick={() => reprintLast('receipt')}>Recibo</Button>
+      {/if}
+    </span>
+  {/if}
 </div>
 
-<main id="main-content" class="mx-auto grid max-w-6xl gap-4 p-4 md:grid-cols-[1fr_360px]">
-  <section>
+<main id="main-content" class="mx-auto grid max-w-6xl gap-0 p-6 md:grid-cols-[1fr_320px]">
+  <section class="pr-0 md:pr-6">
     <Label for="search-input" class="sr-only">Buscar produto</Label>
     <Input
       id="search-input"
       bind:ref={searchInputEl}
       bind:value={searchValue}
       oninput={onSearchInput}
-      placeholder="Digite o nome da sopa… (ex: 2 caldo verde)"
+      placeholder="&gt; digite o nome da sopa… (ex: 2 caldo verde)"
       autocomplete="off"
-      class="mb-3 h-11 text-base"
+      class="mb-3 h-11 rounded-[3px] border-2 border-foreground font-mono text-[15px]"
     />
 
-    <div class="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Categorias">
+    <div class="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Categorias">
       {#each tabs as tab (tab.id)}
         <button
           type="button"
           role="tab"
           aria-selected={tab.id === currentCategory}
-          class={`rounded-full border px-4 py-1.5 text-sm ${tab.id === currentCategory ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+          class={`rounded-[3px] border px-3.5 py-1.5 font-mono text-xs tracking-wide uppercase ${tab.id === currentCategory ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground'}`}
           onclick={() => selectCategory(tab.id)}
         >
           {tab.name}
@@ -373,9 +426,9 @@
     </div>
 
     {#if loading}
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">
         {#each Array(6) as _}
-          <div class="h-16 animate-pulse rounded-lg bg-muted"></div>
+          <div class="h-16 animate-pulse bg-muted"></div>
         {/each}
       </div>
     {:else if products.length === 0}
@@ -385,54 +438,63 @@
     {:else if filteredProducts.length === 0}
       <p class="text-muted-foreground">Nada encontrado para essa busca.</p>
     {:else}
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">
         {#each filteredProducts as product, index (product.id)}
           <button
             type="button"
             bind:this={productRefs[index]}
-            class={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors hover:bg-accent ${index === selectedIndex ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card'}`}
+            class={`relative flex flex-col items-start gap-1.5 bg-card p-3.5 text-left transition-colors hover:bg-accent ${index === selectedIndex ? 'bg-primary/8 shadow-[inset_3px_0_0_var(--color-primary)]' : ''}`}
             onclick={() => {
               addToCart(product, 1);
               focusSearch();
             }}
           >
-            <span class="font-semibold">{product.name}</span>
-            <span class="text-sm tabular-nums text-muted-foreground">{money(product.price)}</span>
+            {#if topProductNames.has(product.name)}
+              <Flame class="absolute top-2 right-2 size-3.5 text-primary" aria-label="Um dos mais pedidos hoje" />
+            {/if}
+            <span class="text-sm font-semibold">{product.name}</span>
+            <span class="font-mono text-sm font-semibold tabular-nums text-muted-foreground">{money(product.price)}</span>
           </button>
         {/each}
       </div>
     {/if}
   </section>
 
-  <section class="sticky top-4 flex h-fit flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
-    <div class="flex items-center justify-between">
-      <h2 class="text-lg font-semibold">Pedido</h2>
-      <Button variant="secondary" size="sm" onclick={openReferenceModal}>
+  <section class="ticket-notch relative flex h-fit flex-col gap-3 border border-border bg-card p-4 md:border-l-dashed">
+    <div class="flex items-center justify-between pt-1">
+      <h2 class="font-mono text-sm font-bold tracking-wide uppercase">Pedido</h2>
+      <Button variant="outline" size="sm" class="border-primary text-primary hover:bg-primary/5" onclick={openReferenceModal}>
         {referenceLabel} <kbd class="ml-1.5 opacity-70">F2</kbd>
       </Button>
     </div>
 
     <Label for="order-note-input" class="sr-only">Nota do pedido</Label>
-    <Input id="order-note-input" bind:value={orderNote} placeholder="Nota do pedido (opcional, ex: para viagem)" autocomplete="off" />
+    <Input
+      id="order-note-input"
+      bind:value={orderNote}
+      placeholder="nota do pedido (opcional, ex: para viagem)"
+      autocomplete="off"
+      class="rounded-[3px] border-dashed font-mono text-xs"
+    />
 
     {#if cart.length === 0}
       <p class="text-sm text-muted-foreground">Carrinho vazio. Digite o nome de uma sopa e aperte Enter.</p>
     {:else}
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2.5">
         {#each cart as item, i (i)}
-          <div class="rounded-md border p-2">
-            <div class="flex items-center justify-between text-sm">
-              <span>{item.quantity}x {item.name}</span>
-              <span class="tabular-nums">{money(item.unitPrice * item.quantity)}</span>
+          <div class="border-b border-dotted border-border pb-2.5 last:border-0 last:pb-0">
+            <div class="flex items-center justify-between font-mono text-[13px]">
+              <span class="uppercase">{item.quantity}x {item.name}</span>
+              <span class="font-bold tabular-nums">{money(item.unitPrice * item.quantity)}</span>
             </div>
-            <div class="mt-1 flex items-center gap-1.5">
+            <div class="mt-1.5 flex items-center gap-1.5">
               <Label for={`item-note-${i}`} class="sr-only">Observação para {item.name}</Label>
               <Input
                 id={`item-note-${i}`}
                 bind:ref={noteInputs[i]}
                 bind:value={item.note}
                 placeholder="observação (ex: sem cebola)"
-                class="h-8 text-xs"
+                class="h-8 rounded-[3px] border-dashed font-sans text-xs italic"
                 onkeydown={(ev) => {
                   if (ev.key === 'Enter' || ev.key === 'Escape') {
                     (ev.target as HTMLInputElement).blur();
@@ -464,34 +526,44 @@
       </div>
     {/if}
 
-    <div class="flex justify-between border-t pt-2 text-lg font-bold">
-      <span>Total</span>
-      <span class="tabular-nums">{money(cartTotal)}</span>
+    <div class="flex items-baseline justify-between border-t-2 border-foreground pt-2.5">
+      <span class="font-mono text-xs uppercase tracking-wide text-muted-foreground">Total</span>
+      <span class="font-mono text-2xl font-bold tabular-nums">{money(cartTotal)}</span>
     </div>
 
-    <div class="flex flex-col gap-2">
-      <Button disabled={cart.length === 0 || submitting} onclick={handlePaymentStart}>
-        Pagar <kbd class="ml-1.5 opacity-70">(F4)</kbd>
+    <div class="flex flex-col gap-1.5 pt-1">
+      <Button disabled={cart.length === 0 || submitting} onclick={handlePaymentStart} class="justify-between px-4">
+        Pagar <kbd class="opacity-70">F4</kbd>
       </Button>
-      <Button variant="secondary" disabled={cart.length === 0 || submitting} onclick={() => submitOrder(null)}>
-        Enviar sem pagar <kbd class="ml-1.5 opacity-70">(F8)</kbd>
+      <Button
+        variant="outline"
+        disabled={cart.length === 0 || submitting}
+        onclick={() => submitOrder(null)}
+        class="justify-between px-4"
+      >
+        Enviar sem pagar <kbd class="opacity-70">F8</kbd>
       </Button>
-      <Button variant="secondary" onclick={handleClear}>Limpar <kbd class="ml-1.5 opacity-70">(F9)</kbd></Button>
+      <Button variant="ghost" onclick={handleClear} class="justify-between px-4">
+        Limpar <kbd class="opacity-70">F9</kbd>
+      </Button>
     </div>
   </section>
 </main>
 
-<footer class="flex flex-wrap gap-x-4 gap-y-1 border-t bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+<footer class="flex flex-wrap gap-x-4 gap-y-1 border-t border-dashed bg-card px-6 py-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
   <span><b>↑↓</b> navegar</span>
   <span><b>Enter</b> adicionar</span>
   <span><b>3 nome</b> quantidade</span>
   <span><b>/</b> observação do item</span>
+  <span><b>Alt+1-9</b> categoria</span>
   <span><b>F2</b> identificação</span>
   <span><b>F4</b> pagar</span>
+  <span><b>F6</b> reimprimir último</span>
   <span><b>F8</b> enviar sem pagar</span>
   <span><b>F9</b> limpar</span>
   <span><b>Esc</b> limpar busca</span>
 </footer>
+</div>
 
 <Dialog.Root open={referenceModalOpen} onOpenChange={(open) => (referenceModalOpen = open)}>
   <Dialog.Content
@@ -509,14 +581,14 @@
         aria-pressed={modalSource === 'counter'}
         onclick={() => selectModalSource('counter')}
       >
-        Balcão <kbd class="ml-1.5 rounded border px-1 text-xs opacity-70">1</kbd>
+        Balcão <kbd class="ml-1.5 opacity-70">1</kbd>
       </Button>
       <Button
         variant={modalSource === 'table' ? 'default' : 'secondary'}
         aria-pressed={modalSource === 'table'}
         onclick={() => selectModalSource('table')}
       >
-        Mesa <kbd class="ml-1.5 rounded border px-1 text-xs opacity-70">2</kbd>
+        Mesa <kbd class="ml-1.5 opacity-70">2</kbd>
       </Button>
     </div>
     {#if modalSource === 'table'}
@@ -549,8 +621,8 @@
       />
     {/if}
     <Dialog.Footer>
-      <Button onclick={confirmReference}>Confirmar <kbd class="ml-1.5 opacity-70">(Enter)</kbd></Button>
-      <Button variant="secondary" onclick={() => (referenceModalOpen = false)}>Cancelar <kbd class="ml-1.5 opacity-70">(Esc)</kbd></Button>
+      <Button onclick={confirmReference}>Confirmar <kbd class="ml-1.5 opacity-70">Enter</kbd></Button>
+      <Button variant="secondary" onclick={() => (referenceModalOpen = false)}>Cancelar <kbd class="ml-1.5 opacity-70">Esc</kbd></Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -582,3 +654,17 @@
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>
+
+<style>
+  .ticket-notch::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background-image: radial-gradient(circle at 8px 0, transparent 4px, var(--background) 4.5px);
+    background-size: 16px 8px;
+    background-repeat: repeat-x;
+  }
+</style>
