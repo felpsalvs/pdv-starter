@@ -74,11 +74,11 @@ func (s *CashRegisterService) Open(openingAmount float64, hasAmount bool) (*stor
 		return nil, err
 	}
 	if existing != nil {
-		return nil, NewValidationError("A cash register is already open.")
+		return nil, NewValidationError("Já existe um caixa aberto.")
 	}
 
 	if !hasAmount || openingAmount < 0 {
-		return nil, NewValidationError("Enter a valid opening amount.")
+		return nil, NewValidationError("Informe um valor de abertura válido.")
 	}
 
 	id, err := s.store.CreateCashRegister(openingAmount, clock.NowLocal())
@@ -90,20 +90,20 @@ func (s *CashRegisterService) Open(openingAmount float64, hasAmount bool) (*stor
 
 func (s *CashRegisterService) RegisterMovement(movementType string, amount float64, hasAmount bool, reason string) (*CurrentSummary, error) {
 	if movementType != "cash_out" && movementType != "cash_in" {
-		return nil, NewValidationError("Invalid movement type.")
+		return nil, NewValidationError("Tipo de movimento inválido.")
 	}
 	register, err := s.store.OpenRegister()
 	if err != nil {
 		return nil, err
 	}
 	if register == nil {
-		return nil, NewValidationError("There is no open cash register.")
+		return nil, NewValidationError("Não há caixa aberto.")
 	}
 	if !hasAmount || amount <= 0 {
-		return nil, NewValidationError("Enter a valid amount.")
+		return nil, NewValidationError("Informe um valor válido.")
 	}
 	if reason == "" {
-		return nil, NewValidationError("Enter a reason for the movement.")
+		return nil, NewValidationError("Informe o motivo do movimento.")
 	}
 
 	if err := s.store.InsertCashMovement(register.ID, movementType, amount, reason, clock.NowLocal()); err != nil {
@@ -125,10 +125,10 @@ func (s *CashRegisterService) Close(countedAmount float64, hasAmount bool) (*Clo
 		return nil, err
 	}
 	if register == nil {
-		return nil, NewValidationError("There is no open cash register to close.")
+		return nil, NewValidationError("Não há caixa aberto para fechar.")
 	}
 	if !hasAmount || countedAmount < 0 {
-		return nil, NewValidationError("Enter a valid counted amount.")
+		return nil, NewValidationError("Informe um valor contado válido.")
 	}
 
 	summary, err := s.buildSummary(register)

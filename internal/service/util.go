@@ -9,3 +9,10 @@ import "math"
 func round2(v float64) float64 {
 	return math.Floor(v*100+0.5) / 100
 }
+
+// centsOf rounds to the nearest cent and returns an integer so money
+// comparisons (e.g. "valor recebido >= total") aren't tripped up by binary
+// floating point representation error (0.1 + 0.2 != 0.3).
+func centsOf(v float64) int64 {
+	return int64(math.Floor(v*100 + 0.5))
+}

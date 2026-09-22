@@ -105,7 +105,7 @@ func (s *OrdersService) validatePayment(payment *PaymentInput, total float64) (*
 	var amountReceived *float64
 	changeDue := 0.0
 	if payment.PaymentMethod == "cash" {
-		if !payment.HasAmountReceived || payment.AmountReceived < total {
+		if !payment.HasAmountReceived || centsOf(payment.AmountReceived) < centsOf(total) {
 			return nil, NewValidationError("Valor recebido insuficiente.")
 		}
 		amountReceived = &payment.AmountReceived

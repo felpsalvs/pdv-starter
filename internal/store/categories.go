@@ -58,7 +58,23 @@ func (s *Store) UpdateCategory(id int64, name string, sortOrder int64) (*Categor
 	return s.GetCategory(id)
 }
 
+// DeactivateCategory deactivates the category and, in the same transaction,
+// clears category_id on every product that pointed to it — otherwise those
+// products would keep referencing an inactive category and quietly vanish
+// from the order screen (which only loads active categories/tabs) while
+// still showing a blank category in the edit form.
 func (s *Store) DeactivateCategory(id int64) error {
-	_, err := s.DB.Exec("UPDATE categories SET active = 0 WHERE id = ?", id)
-	return err
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("UPDATE categories SET active = 0 WHERE id = ?", id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE products SET category_id = NULL WHERE category_id = ?", id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

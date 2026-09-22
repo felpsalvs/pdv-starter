@@ -8,19 +8,19 @@ func TestOpenRegisterTwiceFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := cashRegister.Open(50, true)
-	assertValidationError(t, err, "A cash register is already open.")
+	assertValidationError(t, err, "Já existe um caixa aberto.")
 }
 
 func TestOpenRegisterRejectsNegativeAmount(t *testing.T) {
 	_, _, cashRegister := newTestServices(t)
 	_, err := cashRegister.Open(-1, true)
-	assertValidationError(t, err, "Enter a valid opening amount.")
+	assertValidationError(t, err, "Informe um valor de abertura válido.")
 }
 
 func TestMovementRequiresOpenRegister(t *testing.T) {
 	_, _, cashRegister := newTestServices(t)
 	_, err := cashRegister.RegisterMovement("cash_out", 10, true, "gelo")
-	assertValidationError(t, err, "There is no open cash register.")
+	assertValidationError(t, err, "Não há caixa aberto.")
 }
 
 func TestMovementValidation(t *testing.T) {
@@ -88,7 +88,7 @@ func TestCloseRegisterComputesExpectedAndDifference(t *testing.T) {
 func TestCloseRegisterWithoutOpenOneFails(t *testing.T) {
 	_, _, cashRegister := newTestServices(t)
 	_, err := cashRegister.Close(0, true)
-	assertValidationError(t, err, "There is no open cash register to close.")
+	assertValidationError(t, err, "Não há caixa aberto para fechar.")
 }
 
 func TestRound2MatchesJSMathRound(t *testing.T) {
