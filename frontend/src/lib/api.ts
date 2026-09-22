@@ -132,6 +132,9 @@ export const api = {
   listCategories: () => fetchJSON<Category[]>('/api/categories'),
   createCategory: (name: string) =>
     fetchJSON<Category>('/api/categories', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ name }) }),
+  updateCategory: (id: number, input: Partial<{ name: string; sortOrder: number }>) =>
+    fetchJSON<Category>(`/api/categories/${id}`, { method: 'PUT', headers: jsonHeaders, body: JSON.stringify(input) }),
+  removeCategory: (id: number) => fetchJSON<void>(`/api/categories/${id}`, { method: 'DELETE' }),
 
   listProducts: (opts?: { includeInactive?: boolean; availableToday?: boolean }) => {
     const params = new URLSearchParams();

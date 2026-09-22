@@ -28,6 +28,13 @@
 
   let removingProduct = $state<Product | null>(null);
 
+  let editingCategory = $state<Category | null>(null);
+  let editCategoryName = $state('');
+
+  let removingCategory = $state<Category | null>(null);
+
+  let sortedCategories = $derived([...categories].sort((a, b) => a.sortOrder - b.sortOrder));
+
   function categoryName_(id: number | null) {
     const category = categories.find((c) => c.id === id);
     return category ? category.name : 'Sem categoria';
@@ -63,6 +70,57 @@
       await loadCategories();
     } catch (err) {
       toast(errorMessage(err, 'Erro ao adicionar categoria.'), 'error');
+    }
+  }
+
+  function openEditCategory(category: Category) {
+    editingCategory = category;
+    editCategoryName = category.name;
+  }
+
+  async function submitEditCategory() {
+    if (!editingCategory) return;
+    const name = editCategoryName.trim();
+    if (!name) {
+      toast('Informe o nome da categoria.', 'error');
+      return;
+    }
+    try {
+      await api.updateCategory(editingCategory.id, { name });
+      toast('Categoria atualizada.', 'success');
+      editingCategory = null;
+      await loadCategories();
+    } catch (err) {
+      toast(errorMessage(err, 'Erro ao atualizar categoria.'), 'error');
+    }
+  }
+
+  async function moveCategory(category: Category, direction: -1 | 1) {
+    const sorted = [...categories].sort((a, b) => a.sortOrder - b.sortOrder);
+    const index = sorted.findIndex((c) => c.id === category.id);
+    const swapIndex = index + direction;
+    if (index === -1 || swapIndex < 0 || swapIndex >= sorted.length) return;
+    const other = sorted[swapIndex];
+    try {
+      await Promise.all([
+        api.updateCategory(category.id, { sortOrder: other.sortOrder }),
+        api.updateCategory(other.id, { sortOrder: category.sortOrder }),
+      ]);
+      await loadCategories();
+    } catch (err) {
+      toast(errorMessage(err, 'Erro ao reordenar categoria.'), 'error');
+    }
+  }
+
+  async function confirmRemoveCategory() {
+    if (!removingCategory) return;
+    try {
+      await api.removeCategory(removingCategory.id);
+      toast('Categoria removida.', 'success');
+      removingCategory = null;
+      await loadCategories();
+    } catch (err) {
+      toast(errorMessage(err, 'Erro ao remover categoria.'), 'error');
     }
   }
 
@@ -160,6 +218,40 @@
     <Label for="category-name-input" class="sr-only">Nome da categoria</Label>
     <Input id="category-name-input" placeholder="Ex: Sopas, Bebidas, Porções" bind:value={categoryName} class="mb-3" />
     <Button variant="secondary" onclick={addCategory}>Adicionar categoria</Button>
+
+    {#if sortedCategories.length > 0}
+      <ul class="mt-4 flex flex-col gap-2">
+        {#each sortedCategories as category, index (category.id)}
+          <li class="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
+            <span class="text-sm font-medium">{category.name}</span>
+            <div class="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={index === 0}
+                onclick={() => moveCategory(category, -1)}
+                aria-label="Mover para cima"
+              >
+                ↑
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={index === sortedCategories.length - 1}
+                onclick={() => moveCategory(category, 1)}
+                aria-label="Mover para baixo"
+              >
+                ↓
+              </Button>
+              <Button variant="secondary" size="sm" onclick={() => openEditCategory(category)}>Renomear</Button>
+              <Button variant="outline" size="sm" class="text-destructive" onclick={() => (removingCategory = category)}>
+                Remover
+              </Button>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </div>
 
   <div class="mb-6 max-w-md rounded-lg border bg-card p-4 shadow-sm">
@@ -277,6 +369,39 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
+
+<Dialog.Root open={editingCategory !== null} onOpenChange={(open) => !open && (editingCategory = null)}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>Renomear categoria</Dialog.Title>
+    </Dialog.Header>
+    <div class="flex flex-col gap-3">
+      <Label for="edit-category-name" class="sr-only">Nome da categoria</Label>
+      <Input id="edit-category-name" placeholder="Nome da categoria" bind:value={editCategoryName} />
+    </div>
+    <Dialog.Footer>
+      <Button variant="secondary" onclick={() => (editingCategory = null)}>Cancelar</Button>
+      <Button onclick={submitEditCategory}>Salvar</Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<AlertDialog.Root open={removingCategory !== null} onOpenChange={(open) => !open && (removingCategory = null)}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Remover categoria?</AlertDialog.Title>
+      <AlertDialog.Description>
+        A categoria sai do cardápio. Produtos que estavam nela passam a aparecer como "Sem categoria".
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
+      <AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={confirmRemoveCategory}>
+        Remover
+      </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 
 <AlertDialog.Root open={removingProduct !== null} onOpenChange={(open) => !open && (removingProduct = null)}>
   <AlertDialog.Content>
